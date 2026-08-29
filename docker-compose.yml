@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: thesis-postgres
+    environment:
+      POSTGRES_DB: thesis_app
+      POSTGRES_USER: thesis
+      POSTGRES_PASSWORD: thesis
+    ports:
+      - "5432:5432"
+    volumes:
+      - thesis_pg_data:/var/lib/postgresql/data
+
+volumes:
+  thesis_pg_data:

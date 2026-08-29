@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${project.title}">Project</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+    <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+
+    <section class="project-header">
+        <h1 th:text="${project.title}">Project title</h1>
+        <div class="meta">
+            <span class="badge" th:text="${project.status}">IN_PROGRESS</span>
+            <span class="muted" th:text="${project.owner.email}">owner</span>
+            <span class="badge" th:if="${project.llmProvider != null}" th:text="${project.llmProvider}">OPENAI</span>
+            <span class="badge" th:text="${project.simplifyModeEnabled} ? 'Simplify on' : 'Simplify off'">Simplify</span>
+        </div>
+        <div class="actions">
+            <a class="button" th:href="@{/projects/{id}/elicit(id=${project.id})}">Continue elicitation</a>
+            <form th:action="@{/projects/{id}/export/spec(id=${project.id})}" method="post">
+                <button class="button secondary" type="submit">Generate SPEC.md</button>
+            </form>
+            <a class="button secondary"
+               th:if="${latestSpec != null}"
+               th:href="@{/projects/{id}/export/spec/download(id=${project.id})}">Download SPEC.md</a>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <h2>Initial idea (working notes)</h2>
+        <p class="muted">Used during elicitation only. SPEC.md uses the confirmed overall idea instead.</p>
+        <p th:text="${project.initialIdea}">Idea text</p>
+    </section>
+
+    <section>
+        <h2>Enabled categories</h2>
+        <div class="slot-grid">
+            <article class="slot-card" th:each="category : ${projectCategories}">
+                <h3 th:text="${category.category}">GOAL</h3>
+                <p class="muted">
+                    <span th:text="${category.mandatory} ? 'Mandatory' : 'Optional'">Mandatory</span>
+                    ·
+                    <span th:text="${category.questionsAsked} + '/' + ${category.maxQuestions} + ' questions'">0/2</span>
+                </p>
+            </article>
+        </div>
+    </section>
+
+    <section>
+        <h2>Requirement slots</h2>
+        <div class="slot-grid">
+            <article class="slot-card" th:each="slot : ${requirementSlots}">
+                <h3 th:text="${slot.category}">GOAL</h3>
+                <p th:if="${slot.value != null}" th:text="${slot.value}">Value</p>
+                <p th:if="${slot.value == null}" class="muted">Not captured yet</p>
+                <div class="progress">
+                    <div class="progress-bar" th:style="'width:' + ${slot.completeness * 100} + '%'"></div>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section th:if="${latestSpec != null}" class="form-card">
+        <h2>Latest SPEC.md</h2>
+        <pre class="spec-preview" th:text="${latestSpec.content}">spec</pre>
+    </section>
+</main>
+</body>
+</html>

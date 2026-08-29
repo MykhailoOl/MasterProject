@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Elicitation</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <h1 th:text="${view.project.title}">Project</h1>
+    <p class="muted">
+        Progress:
+        <span th:text="${view.answeredCount}">0</span>
+        /
+        <span th:text="${view.totalBudget}">0</span>
+        questions used
+    </p>
+
+    <section th:if="${view.complete}" class="form-card">
+        <h2>Elicitation complete</h2>
+        <p>You can generate and download SPEC.md now.</p>
+        <div class="actions">
+            <form th:action="@{/projects/{id}/export/spec(id=${view.project.id})}" method="post">
+                <button class="button" type="submit">Generate SPEC.md</button>
+            </form>
+            <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Project page</a>
+        </div>
+    </section>
+
+    <section th:if="${!view.complete && view.currentQuestion != null}" class="form-card">
+        <p class="badge" th:text="${view.currentQuestion.category}">GOAL</p>
+        <div id="question-text"
+             class="question-text"
+             th:attr="data-simplify=${view.project.simplifyModeEnabled}"
+             th:text="${view.currentQuestion.questionText}">
+            Question
+        </div>
+        <p class="hint" th:if="${view.project.simplifyModeEnabled and !view.titleChoiceStep}">
+            Select at least one full sentence, then right-click and choose Simplify.
+        </p>
+
+        <form th:action="@{/projects/{id}/elicit/{qid}(id=${view.project.id}, qid=${view.currentQuestion.id})}"
+              th:object="${answerQuestionRequest}"
+              method="post">
+            <div th:if="${view.titleChoiceStep}">
+                <p class="muted">Pick a suggested title or write your own.</p>
+                <label class="check-row" th:each="choice : ${view.choices}">
+                    <input type="radio" name="selectedChoice" th:value="${choice}" required>
+                    <span th:text="${choice}">Title option</span>
+                </label>
+                <label class="check-row">
+                    <input type="radio" name="selectedChoice" value="__custom__" id="custom-title-choice">
+                    <span>Write my own title</span>
+                </label>
+                <label for="answerText">Custom title</label>
+                <input id="answerText" type="text" th:field="*{answerText}" maxlength="255" autocomplete="off">
+            </div>
+
+            <div th:unless="${view.titleChoiceStep}">
+                <label for="answerText" th:text="${view.overallIdeaStep} ? 'Overall idea' : 'Your answer'">Your answer</label>
+                <textarea id="answerText" th:field="*{answerText}" rows="5" required maxlength="5000"></textarea>
+            </div>
+
+            <p class="error" th:if="${#fields.hasErrors('answerText')}" th:errors="*{answerText}"></p>
+            <div class="actions">
+                <button class="button" type="submit">Submit answer</button>
+                <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Back</a>
+            </div>
+        </form>
+    </section>
+</main>
+
+<div id="simplify-menu" class="context-menu" hidden>
+    <button type="button" id="simplify-action">Simplify</button>
+</div>
+
+<dialog id="simplify-dialog" class="simplify-dialog">
+    <h3>Simplified text</h3>
+    <p id="simplify-output" class="simplify-output"></p>
+    <p id="simplify-error" class="error" hidden></p>
+    <form method="dialog" class="actions">
+        <button class="button" value="close">Close</button>
+    </form>
+</dialog>
+
+<script th:inline="javascript">
+    const projectId = /*[[${view.project.id}]]*/ 0;
+    const simplifyEnabled = /*[[${view.project.simplifyModeEnabled}]]*/ false;
+</script>
+<script th:src="@{/js/simplify.js}"></script>
+</body>
+</html>

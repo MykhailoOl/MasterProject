@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log in</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <h1>Log in</h1>
+
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+    <div th:if="${param.error}" class="flash error-flash">Invalid email or password.</div>
+    <div th:if="${param.logout}" class="flash">You have been logged out.</div>
+
+    <form th:action="@{/login}" method="post" class="form-card" novalidate>
+        <label for="email">Email</label>
+        <input id="email" type="email" name="email" required maxlength="255" autocomplete="username">
+
+        <label for="password">Password</label>
+        <input id="password" type="password" name="password" required maxlength="100" autocomplete="current-password">
+
+        <div class="actions">
+            <button class="button" type="submit">Log in</button>
+            <a class="button secondary" th:href="@{/register}">Register</a>
+        </div>
+    </form>
+
+    <form th:if="${quickAdminLogin}" th:action="@{/dev/login-as-admin}" method="post" class="form-card dev-box">
+        <p class="muted">Temporary development shortcut</p>
+        <button class="button secondary" type="submit">Enter as admin</button>
+    </form>
+</main>
+</body>
+</html>

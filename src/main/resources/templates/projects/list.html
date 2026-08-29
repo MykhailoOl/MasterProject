@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+    <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+
+    <section class="project-header">
+        <h1>Your projects</h1>
+        <div class="actions">
+            <a class="button" th:href="@{/projects/new}">Start new project</a>
+        </div>
+    </section>
+
+    <div th:if="${#lists.isEmpty(projects)}" class="empty-state">
+        <p>No projects yet.</p>
+    </div>
+    <div class="card-grid" th:if="${!#lists.isEmpty(projects)}">
+        <article class="card" th:each="project : ${projects}">
+            <h3>
+                <a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.title}">Title</a>
+            </h3>
+            <p class="muted" th:text="${#strings.abbreviate(project.initialIdea, 120)}">Idea</p>
+            <div class="meta">
+                <span class="badge" th:text="${project.status}">DRAFT</span>
+                <span th:text="${project.updatedAtLabel}">date</span>
+            </div>
+        </article>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<header class="site-header" th:fragment="header" xmlns:th="http://www.thymeleaf.org">
+    <div class="container header-inner">
+        <a class="brand" th:href="@{/}">Spec Assistant</a>
+        <nav class="header-nav">
+            <th:block th:if="${currentUserEmail != null}">
+                <a th:href="@{/projects}">Projects</a>
+                <a th:href="@{/projects/new}">New project</a>
+                <a th:href="@{/settings/llm}">LLM settings</a>
+                <a th:href="@{/profile}">Profile</a>
+                <span class="nav-user" th:text="${currentUserEmail}">user@example.com</span>
+                <form th:action="@{/logout}" method="post" class="inline-form">
+                    <button type="submit" class="link-button">Log out</button>
+                </form>
+            </th:block>
+            <th:block th:if="${currentUserEmail == null}">
+                <a th:href="@{/login}">Log in</a>
+                <a th:href="@{/register}">Register</a>
+            </th:block>
+        </nav>
+    </div>
+</header>

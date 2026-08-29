@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New project</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <h1>New project</h1>
+    <p class="muted">Describe the idea, choose the LLM and categories. Title and overall idea are finalized at the end of elicitation.</p>
+
+    <div th:if="${#lists.isEmpty(providers) or !hasConfiguredProvider}" class="flash error-flash">
+        Add and verify an LLM API key in <a th:href="@{/settings/llm}">LLM settings</a> first.
+    </div>
+
+    <form th:action="@{/projects}" th:object="${createProjectRequest}" method="post" class="form-card" novalidate>
+        <div th:if="${#fields.hasGlobalErrors()}" class="flash error-flash">
+            <p th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
+        </div>
+
+        <label for="initialIdea">Initial idea</label>
+        <textarea id="initialIdea" th:field="*{initialIdea}" rows="6"
+                  th:classappend="${#fields.hasErrors('initialIdea')} ? 'input-error'"
+                  minlength="10" maxlength="5000" required></textarea>
+        <p class="error" th:if="${#fields.hasErrors('initialIdea')}" th:errors="*{initialIdea}"></p>
+
+        <label for="llmProvider">LLM provider</label>
+        <select id="llmProvider" th:field="*{llmProvider}" required>
+            <option value="">Select provider</option>
+            <option th:each="providerView : ${providers}"
+                    th:value="${providerView.provider}"
+                    th:disabled="${!providerView.configured}"
+                    th:text="${providerView.displayName} + (${providerView.configured} ? '' : ' (not configured)')">
+                OpenAI
+            </option>
+        </select>
+        <p class="error" th:if="${#fields.hasErrors('llmProvider')}" th:errors="*{llmProvider}"></p>
+
+        <fieldset class="fieldset">
+            <legend>Mandatory categories</legend>
+            <p class="muted">Always included during elicitation.</p>
+            <ul class="plain-list">
+                <li th:each="item : ${mandatoryCategories}">
+                    <strong th:text="${item.displayName}">Goal</strong>
+                    — <span th:text="${item.description}">desc</span>
+                    <span class="badge" th:text="'max ' + ${item.maxQuestions} + ' q'">max 2 q</span>
+                </li>
+            </ul>
+            <p class="hint">At the end you will pick a project title from AI suggestions and confirm an overall idea.</p>
+        </fieldset>
+
+        <fieldset class="fieldset">
+            <legend>Optional categories</legend>
+            <p class="muted">Turn on only what you need. Unselected categories are omitted from SPEC.md.</p>
+            <label class="check-row" th:each="item : ${optionalCategories}">
+                <input type="checkbox"
+                       th:field="*{optionalCategories}"
+                       th:value="${item.category}">
+                <span>
+                    <strong th:text="${item.displayName}">Testing</strong>
+                    — <span th:text="${item.description}">desc</span>
+                    <span class="badge" th:text="'max ' + ${item.maxQuestions} + ' q'">max 1 q</span>
+                </span>
+            </label>
+        </fieldset>
+
+        <label class="check-row">
+            <input type="checkbox" th:field="*{simplifyModeEnabled}">
+            <span>Enable simplify mode (right-click a sentence on questions to simplify via your LLM)</span>
+        </label>
+
+        <div class="actions">
+            <a class="button secondary" th:href="@{/projects}">Cancel</a>
+            <button class="button" type="submit">Create and start</button>
+        </div>
+    </form>
+</main>
+</body>
+</html>
