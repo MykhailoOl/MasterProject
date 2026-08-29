@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spec Assistant</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <section class="hero">
+        <h1>Spec Assistant</h1>
+        <p>
+            A guided elicitation tool that turns a short software idea into a coding-ready SPEC.md
+            for AI coding agents.
+        </p>
+        <p class="muted">
+            You configure an LLM key, describe an idea, answer focused questions by category,
+            then export a structured specification.
+        </p>
+        <div class="actions">
+            <a class="button" th:if="${currentUserEmail != null}" th:href="@{/projects}">Go to projects</a>
+            <a class="button" th:if="${currentUserEmail == null}" th:href="@{/login}">Log in to start</a>
+            <a class="button secondary" th:if="${currentUserEmail == null}" th:href="@{/register}">Register</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

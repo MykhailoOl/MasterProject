@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:thesis_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+app:
+  browser:
+    launch: false
+    url: http://localhost:8080
+    executable: C:\\Program Files\\Mozilla Firefox\\firefox.exe
+  seed:
+    admin-email: admin@thesis.local
+    admin-password: admin123
+    demo-user-email: user@thesis.local
+    demo-user-password: user123
+  dev:
+    quick-admin-login: false
+  encryption:
+    secret: test-encryption-secret-key

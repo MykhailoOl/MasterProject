@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM API settings</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <h1>LLM API keys</h1>
+    <p class="muted">Keys are stored encrypted for your account. Runtime parameters are fixed by the app.</p>
+
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+    <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+
+    <section class="card-grid">
+        <article class="card" th:each="providerView : ${providers}">
+            <h3 th:text="${providerView.displayName}">OpenAI</h3>
+            <p>
+                <span class="badge" th:text="${providerView.statusLabel}">Configured</span>
+            </p>
+            <p class="muted" th:if="${providerView.lastVerifiedLabel != null}">
+                Last verified:
+                <span th:text="${providerView.lastVerifiedLabel}">2026-01-01 12:00</span>
+            </p>
+            <ul class="param-list">
+                <li th:each="settingLine : ${providerView.parameters}" th:text="${settingLine}">param</li>
+            </ul>
+            <form th:if="${providerView.configured}"
+                  th:action="@{/settings/llm/verify}"
+                  method="post"
+                  class="inline-form">
+                <input type="hidden" name="provider" th:value="${providerView.provider}">
+                <button class="button secondary" type="submit">Check API</button>
+            </form>
+        </article>
+    </section>
+
+    <section class="form-card narrow-block">
+        <h2>Save / update API key</h2>
+        <form th:action="@{/settings/llm}" th:object="${saveLlmCredentialRequest}" method="post">
+            <label for="provider">Provider</label>
+            <select id="provider" th:field="*{provider}" required>
+                <option value="">Select provider</option>
+                <option th:each="providerView : ${providers}"
+                        th:value="${providerView.provider}"
+                        th:text="${providerView.displayName}">OpenAI</option>
+            </select>
+            <p class="error" th:if="${#fields.hasErrors('provider')}" th:errors="*{provider}"></p>
+
+            <label for="apiKey">API key</label>
+            <input id="apiKey" type="password" th:field="*{apiKey}" required autocomplete="off">
+            <p class="error" th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}"></p>
+            <p class="hint">
+                Saving runs a live health check and replaces any existing key for that provider.
+                OpenAI/Grok: GET /v1/models.
+                Anthropic: tiny POST /v1/messages.
+                Gemini: GET /v1beta/models.
+            </p>
+
+            <div class="actions">
+                <button class="button" type="submit">Save and check</button>
+            </div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

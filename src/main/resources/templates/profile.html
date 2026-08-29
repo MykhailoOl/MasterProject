@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <h1>Profile</h1>
+    <p class="muted">Update your basic account details.</p>
+
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+
+    <form th:action="@{/profile}" th:object="${updateProfileRequest}" method="post" class="form-card" novalidate>
+        <div th:if="${#fields.hasGlobalErrors()}" class="flash error-flash">
+            <p th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
+        </div>
+
+        <label for="email">Email</label>
+        <input id="email" type="email" th:field="*{email}" required maxlength="255" autocomplete="username">
+        <p class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p>
+
+        <label for="displayName">Display name</label>
+        <input id="displayName" type="text" th:field="*{displayName}" maxlength="120" autocomplete="nickname">
+        <p class="error" th:if="${#fields.hasErrors('displayName')}" th:errors="*{displayName}"></p>
+
+        <label for="currentPassword">Current password</label>
+        <input id="currentPassword" type="password" th:field="*{currentPassword}" required autocomplete="current-password">
+        <p class="error" th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}"></p>
+
+        <label for="newPassword">New password (optional)</label>
+        <input id="newPassword" type="password" th:field="*{newPassword}" minlength="6" maxlength="100" autocomplete="new-password">
+        <p class="error" th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}"></p>
+
+        <label for="confirmNewPassword">Confirm new password</label>
+        <input id="confirmNewPassword" type="password" th:field="*{confirmNewPassword}" minlength="6" maxlength="100" autocomplete="new-password">
+        <p class="error" th:if="${#fields.hasErrors('confirmNewPassword')}" th:errors="*{confirmNewPassword}"></p>
+
+        <p class="hint">Role: <span th:text="${profileUser.role}">USER</span></p>
+
+        <div class="actions">
+            <button class="button" type="submit">Save profile</button>
+            <a class="button secondary" th:href="@{/projects}">Back to projects</a>
+        </div>
+    </form>
+</main>
+</body>
+</html>

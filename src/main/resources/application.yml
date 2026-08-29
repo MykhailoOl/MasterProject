@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: MasterProject
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/thesis_app
+    username: thesis
+    password: thesis
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 10000
+      maximum-pool-size: 10
+      initialization-fail-timeout: 1
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  thymeleaf:
+    cache: false
+
+server:
+  port: 8080
+
+app:
+  browser:
+    launch: true
+    url: http://localhost:8080/login
+    executable: C:\\Program Files\\Mozilla Firefox\\firefox.exe
+  seed:
+    admin-email: admin@thesis.local
+    admin-password: admin123
+    demo-user-email: user@thesis.local
+    demo-user-password: user123
+  dev:
+    quick-admin-login: true
+  encryption:
+    secret: thesis-local-dev-encryption-key-change-me
