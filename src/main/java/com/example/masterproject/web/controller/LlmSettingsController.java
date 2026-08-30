@@ -1,5 +1,6 @@
 package com.example.masterproject.web.controller;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.llm.LlmHealthResult;
 import com.example.masterproject.model.enums.LlmProvider;
 import com.example.masterproject.service.LlmCredentialService;
@@ -20,9 +21,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class LlmSettingsController {
 
     private final LlmCredentialService llmCredentialService;
+    private final AppLog appLog;
 
-    public LlmSettingsController(LlmCredentialService llmCredentialService) {
+    public LlmSettingsController(LlmCredentialService llmCredentialService, AppLog appLog) {
         this.llmCredentialService = llmCredentialService;
+        this.appLog = appLog;
     }
 
     @GetMapping
@@ -55,6 +58,7 @@ public class LlmSettingsController {
             LlmHealthResult result = llmCredentialService.verifyStored(provider);
             redirectAttributes.addFlashAttribute(result.ok() ? "message" : "errorMessage", result.message());
         } catch (Exception ex) {
+            appLog.error("LLM", "Stored key check failed for " + provider, ex);
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }
         return "redirect:/settings/llm";

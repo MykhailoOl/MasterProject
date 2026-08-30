@@ -1,5 +1,6 @@
 package com.example.masterproject.web.controller;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.ExportArtifact;
 import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
 import com.example.masterproject.service.ElicitationService;
@@ -35,16 +36,19 @@ public class ProjectController {
     private final LlmCredentialService llmCredentialService;
     private final ElicitationService elicitationService;
     private final SpecExportService specExportService;
+    private final AppLog appLog;
 
     public ProjectController(
             ProjectService projectService,
             LlmCredentialService llmCredentialService,
             ElicitationService elicitationService,
-            SpecExportService specExportService) {
+            SpecExportService specExportService,
+            AppLog appLog) {
         this.projectService = projectService;
         this.llmCredentialService = llmCredentialService;
         this.elicitationService = elicitationService;
         this.specExportService = specExportService;
+        this.appLog = appLog;
     }
 
     @GetMapping
@@ -83,6 +87,7 @@ public class ProjectController {
             redirectAttributes.addFlashAttribute("message", "Project created. Start answering questions.");
             return "redirect:/projects/" + projectId + "/elicit";
         } catch (IllegalStateException ex) {
+            appLog.error("PROJECT", "Project creation failed", ex);
             bindingResult.reject("project.create.failed", ex.getMessage());
             populateNewProjectModel(model);
             return "projects/new";
@@ -110,6 +115,7 @@ public class ProjectController {
             model.addAttribute("answerQuestionRequest", answerRequest);
             return "projects/elicit";
         } catch (IllegalStateException ex) {
+            appLog.error("ELICITATION", "Could not start or continue elicitation for project #" + id, ex);
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
             return "redirect:/projects/" + id;
         }

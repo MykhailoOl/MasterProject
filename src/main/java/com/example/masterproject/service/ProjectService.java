@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.ElicitationSession;
 import com.example.masterproject.model.entity.Project;
 import com.example.masterproject.model.entity.ProjectCategory;
@@ -39,6 +40,7 @@ public class ProjectService {
     private final ProjectCategoryRepository projectCategoryRepository;
     private final UserContextService userContextService;
     private final LlmCredentialService llmCredentialService;
+    private final AppLog appLog;
 
     public ProjectService(
             ProjectRepository projectRepository,
@@ -46,13 +48,15 @@ public class ProjectService {
             RequirementSlotRepository requirementSlotRepository,
             ProjectCategoryRepository projectCategoryRepository,
             UserContextService userContextService,
-            LlmCredentialService llmCredentialService) {
+            LlmCredentialService llmCredentialService,
+            AppLog appLog) {
         this.projectRepository = projectRepository;
         this.sessionRepository = sessionRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.projectCategoryRepository = projectCategoryRepository;
         this.userContextService = userContextService;
         this.llmCredentialService = llmCredentialService;
+        this.appLog = appLog;
     }
 
     @Transactional
@@ -112,6 +116,10 @@ public class ProjectService {
             requirementSlotRepository.save(slot);
         }
 
+        appLog.info(
+                "PROJECT",
+                "User " + owner.getEmail() + " created project #" + savedProject.getId()
+                        + " with provider " + provider + ".");
         return savedProject;
     }
 

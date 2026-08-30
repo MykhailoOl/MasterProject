@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.llm.LlmRuntimeSettings;
 import com.example.masterproject.model.entity.Project;
 import java.util.regex.Pattern;
@@ -13,10 +14,12 @@ public class SimplifyService {
 
     private final ProjectService projectService;
     private final LlmCredentialService llmCredentialService;
+    private final AppLog appLog;
 
-    public SimplifyService(ProjectService projectService, LlmCredentialService llmCredentialService) {
+    public SimplifyService(ProjectService projectService, LlmCredentialService llmCredentialService, AppLog appLog) {
         this.projectService = projectService;
         this.llmCredentialService = llmCredentialService;
+        this.appLog = appLog;
     }
 
     @Transactional(readOnly = true)
@@ -39,12 +42,14 @@ public class SimplifyService {
                 """;
         String userPrompt = "Rewrite this in the simplest possible language:\n\n" + selectedText.trim();
 
-        return llmCredentialService.complete(
+        String simplified = llmCredentialService.complete(
                 project.getLlmProvider(),
                 systemPrompt,
                 userPrompt,
                 settings.simplifyTemperature(),
                 settings.simplifyMaxTokens());
+        appLog.info("SIMPLIFY", "Simplified selected text for project #" + projectId + ".");
+        return simplified;
     }
 
     public void validateSelection(String selectedText) {

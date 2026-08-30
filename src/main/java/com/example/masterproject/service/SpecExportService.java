@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.ExportArtifact;
 import com.example.masterproject.model.entity.Project;
 import com.example.masterproject.model.entity.ProjectCategory;
@@ -25,16 +26,19 @@ public class SpecExportService {
     private final ProjectCategoryRepository projectCategoryRepository;
     private final RequirementSlotRepository requirementSlotRepository;
     private final ExportArtifactRepository exportArtifactRepository;
+    private final AppLog appLog;
 
     public SpecExportService(
             ProjectService projectService,
             ProjectCategoryRepository projectCategoryRepository,
             RequirementSlotRepository requirementSlotRepository,
-            ExportArtifactRepository exportArtifactRepository) {
+            ExportArtifactRepository exportArtifactRepository,
+            AppLog appLog) {
         this.projectService = projectService;
         this.projectCategoryRepository = projectCategoryRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.exportArtifactRepository = exportArtifactRepository;
+        this.appLog = appLog;
     }
 
     @Transactional
@@ -109,7 +113,9 @@ public class SpecExportService {
         artifact.setExportType(ExportType.SPEC_MD);
         artifact.setContent(markdown.toString());
         artifact.setGeneratedAt(Instant.now());
-        return exportArtifactRepository.save(artifact);
+        ExportArtifact saved = exportArtifactRepository.save(artifact);
+        appLog.info("SPEC", "SPEC.md generated for project #" + project.getId() + ".");
+        return saved;
     }
 
     @Transactional(readOnly = true)

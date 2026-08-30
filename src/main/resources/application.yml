@@ -27,6 +27,14 @@ spring:
 server:
   port: 8080
 
+logging:
+  file:
+    name: logs/application.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+
 app:
   browser:
     launch: true

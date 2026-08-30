@@ -1,25 +1,28 @@
 package com.example.masterproject.llm;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.enums.LlmProvider;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.ObjectNode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class GrokLlmClient implements LlmClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final AppLog appLog;
     private final LlmRuntimeSettings settings = LlmRuntimeSettings.forProvider(LlmProvider.GROK);
 
-    public GrokLlmClient(RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
+    public GrokLlmClient(RestClient.Builder restClientBuilder, ObjectMapper objectMapper, AppLog appLog) {
         this.restClient = restClientBuilder.baseUrl("https://api.x.ai").build();
         this.objectMapper = objectMapper;
+        this.appLog = appLog;
     }
 
     @Override
@@ -35,10 +38,12 @@ public class GrokLlmClient implements LlmClient {
                     .header("Authorization", "Bearer " + apiKey)
                     .retrieve()
                     .toBodilessEntity();
-            return new LlmHealthResult(true, "Grok API key is valid.");
+            return new LlmHealthResult(true, "Grok API key is valid. Using model " + settings.model() + ".");
         } catch (RestClientResponseException ex) {
+            appLog.error("LLM", "Grok health check failed: HTTP " + ex.getStatusCode().value());
             return new LlmHealthResult(false, "Grok check failed: HTTP " + ex.getStatusCode().value());
         } catch (Exception ex) {
+            appLog.error("LLM", "Grok health check failed", ex);
             return new LlmHealthResult(false, "Grok check failed: " + ex.getMessage());
         }
     }
@@ -47,31 +52,64 @@ public class GrokLlmClient implements LlmClient {
     public String complete(String apiKey, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", settings.model());
+        body.put("instructions", systemPrompt);
+        body.put("max_output_tokens", maxTokens);
         body.put("temperature", temperature);
-        body.put("max_tokens", maxTokens);
-        ArrayNode messages = body.putArray("messages");
-        messages.addObject().put("role", "system").put("content", systemPrompt);
-        messages.addObject().put("role", "user").put("content", userPrompt);
+        body.put("store", false);
+        ArrayNode input = body.putArray("input");
+        input.addObject().put("role", "user").put("content", userPrompt);
 
         try {
+            appLog.info("LLM", "Calling Grok responses with model " + settings.model() + ".");
             String response = restClient.post()
-                    .uri("/v1/chat/completions")
+                    .uri("/v1/responses")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("Authorization", "Bearer " + apiKey)
                     .body(body)
                     .retrieve()
                     .body(String.class);
-            JsonNode root = objectMapper.readTree(response);
-            JsonNode content = root.path("choices").path(0).path("message").path("content");
-            if (content.isMissingNode() || content.asText().isBlank()) {
+            String text = extractOutputText(objectMapper.readTree(response));
+            if (text == null || text.isBlank()) {
                 throw new IllegalStateException("Grok returned an empty response");
             }
-            return content.asText().trim();
+            return text.trim();
         } catch (RestClientResponseException ex) {
+            appLog.error("LLM", "Grok request failed: HTTP " + ex.getStatusCode().value());
             throw new IllegalStateException(
                     "Grok request failed: HTTP " + ex.getStatusCode().value(), ex);
         } catch (Exception ex) {
+            appLog.error("LLM", "Grok request failed", ex);
             throw new IllegalStateException("Grok request failed: " + ex.getMessage(), ex);
         }
+    }
+
+    private String extractOutputText(JsonNode root) {
+        if (root.hasNonNull("output_text") && !root.get("output_text").asText().isBlank()) {
+            return root.get("output_text").asText();
+        }
+        JsonNode output = root.path("output");
+        if (!output.isArray()) {
+            return null;
+        }
+        StringBuilder text = new StringBuilder();
+        for (JsonNode item : output) {
+            JsonNode content = item.path("content");
+            if (!content.isArray()) {
+                continue;
+            }
+            for (JsonNode part : content) {
+                String type = part.path("type").asText();
+                if ("output_text".equals(type) || "text".equals(type)) {
+                    String value = part.path("text").asText("");
+                    if (!value.isBlank()) {
+                        if (!text.isEmpty()) {
+                            text.append('\n');
+                        }
+                        text.append(value);
+                    }
+                }
+            }
+        }
+        return text.isEmpty() ? null : text.toString();
     }
 }

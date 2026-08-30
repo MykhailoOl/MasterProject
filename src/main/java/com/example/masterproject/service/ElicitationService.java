@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.llm.LlmRuntimeSettings;
 import com.example.masterproject.model.entity.Answer;
 import com.example.masterproject.model.entity.ElicitationSession;
@@ -50,6 +51,7 @@ public class ElicitationService {
     private final ProjectRepository projectRepository;
     private final LlmCredentialService llmCredentialService;
     private final ObjectMapper objectMapper;
+    private final AppLog appLog;
 
     public ElicitationService(
             ProjectService projectService,
@@ -60,7 +62,8 @@ public class ElicitationService {
             AnswerRepository answerRepository,
             ProjectRepository projectRepository,
             LlmCredentialService llmCredentialService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            AppLog appLog) {
         this.projectService = projectService;
         this.sessionRepository = sessionRepository;
         this.projectCategoryRepository = projectCategoryRepository;
@@ -70,6 +73,7 @@ public class ElicitationService {
         this.projectRepository = projectRepository;
         this.llmCredentialService = llmCredentialService;
         this.objectMapper = objectMapper;
+        this.appLog = appLog;
     }
 
     @Transactional
@@ -89,6 +93,9 @@ public class ElicitationService {
         }
 
         Question question = generateQuestion(project, session, nextCategory.get());
+        appLog.info(
+                "ELICITATION",
+                "Project #" + project.getId() + " asked a " + question.getCategory() + " question.");
         return buildView(project, session, question);
     }
 
@@ -131,6 +138,9 @@ public class ElicitationService {
         project.setUpdatedAt(Instant.now());
         projectRepository.save(project);
 
+        appLog.info(
+                "ELICITATION",
+                "Project #" + project.getId() + " received an answer for " + question.getCategory() + ".");
         return getOrAdvance(projectId);
     }
 
@@ -428,6 +438,7 @@ public class ElicitationService {
         project.setStatus(ProjectStatus.COMPLETED);
         project.setUpdatedAt(Instant.now());
         projectRepository.save(project);
+        appLog.info("ELICITATION", "Project #" + project.getId() + " elicitation completed.");
     }
 
     private ElicitationView buildView(Project project, ElicitationSession session, Question question) {

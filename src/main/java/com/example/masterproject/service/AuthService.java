@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.User;
 import com.example.masterproject.model.enums.UserRole;
 import com.example.masterproject.repository.UserRepository;
@@ -13,10 +14,12 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AppLog appLog;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, AppLog appLog) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.appLog = appLog;
     }
 
     @Transactional(readOnly = true)
@@ -33,6 +36,8 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(UserRole.USER);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        appLog.info("AUTH", "New account registered: " + saved.getEmail() + ".");
+        return saved;
     }
 }

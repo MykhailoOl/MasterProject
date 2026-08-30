@@ -39,6 +39,8 @@ out/
 ### Local / debug ###
 .cursor/
 debug-*.log
+logs/*.log
+logs/*.log.*
 cookies.txt
 /after_login.html
 /login_resp.html

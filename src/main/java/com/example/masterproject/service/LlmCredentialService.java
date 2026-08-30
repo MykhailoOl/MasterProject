@@ -4,6 +4,7 @@ import com.example.masterproject.llm.LlmClient;
 import com.example.masterproject.llm.LlmClientRegistry;
 import com.example.masterproject.llm.LlmHealthResult;
 import com.example.masterproject.llm.LlmRuntimeSettings;
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.User;
 import com.example.masterproject.model.entity.UserLlmCredential;
 import com.example.masterproject.model.enums.LlmProvider;
@@ -29,16 +30,19 @@ public class LlmCredentialService {
     private final UserContextService userContextService;
     private final SecretEncryptionService encryptionService;
     private final LlmClientRegistry llmClientRegistry;
+    private final AppLog appLog;
 
     public LlmCredentialService(
             UserLlmCredentialRepository credentialRepository,
             UserContextService userContextService,
             SecretEncryptionService encryptionService,
-            LlmClientRegistry llmClientRegistry) {
+            LlmClientRegistry llmClientRegistry,
+            AppLog appLog) {
         this.credentialRepository = credentialRepository;
         this.userContextService = userContextService;
         this.encryptionService = encryptionService;
         this.llmClientRegistry = llmClientRegistry;
+        this.appLog = appLog;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +66,10 @@ public class LlmCredentialService {
         LlmClient client = llmClientRegistry.require(provider);
         LlmHealthResult health = client.checkHealth(trimmed);
         if (!health.ok()) {
+            appLog.warn(
+                    "LLM",
+                    "API key check failed for " + displayName(provider) + " by "
+                            + userContextService.getCurrentUserEmailOrNull() + ": " + health.message());
             return health;
         }
 
@@ -81,6 +89,10 @@ public class LlmCredentialService {
         String message = updating
                 ? health.message() + " API key replaced for " + displayName(provider) + "."
                 : health.message() + " API key saved for " + displayName(provider) + ".";
+        appLog.info(
+                "LLM",
+                "User " + user.getEmail() + (updating ? " replaced" : " saved")
+                        + " API key for " + displayName(provider) + ".");
         return new LlmHealthResult(true, message);
     }
 
@@ -109,6 +121,7 @@ public class LlmCredentialService {
     public String complete(
             LlmProvider provider, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         String apiKey = resolveApiKey(provider);
+        appLog.info("LLM", "Calling " + displayName(provider) + " for " + userContextService.getCurrentUserEmailOrNull() + ".");
         return llmClientRegistry.require(provider).complete(apiKey, systemPrompt, userPrompt, temperature, maxTokens);
     }
 
@@ -127,8 +140,8 @@ public class LlmCredentialService {
                 "model=" + settings.model(),
                 "elicitation temperature=" + settings.elicitationTemperature(),
                 "simplify temperature=" + settings.simplifyTemperature(),
-                "elicitation max_tokens=" + settings.elicitationMaxTokens(),
-                "simplify max_tokens=" + settings.simplifyMaxTokens(),
+                "elicitation max output tokens=" + settings.elicitationMaxTokens(),
+                "simplify max output tokens=" + settings.simplifyMaxTokens(),
                 "health check=" + settings.healthCheckDescription()));
         view.setHealthCheckHint(settings.healthCheckDescription());
         return view;

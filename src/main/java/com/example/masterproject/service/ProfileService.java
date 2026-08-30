@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.User;
 import com.example.masterproject.repository.UserRepository;
 import com.example.masterproject.web.dto.UpdateProfileRequest;
@@ -13,14 +14,17 @@ public class ProfileService {
     private final UserRepository userRepository;
     private final UserContextService userContextService;
     private final PasswordEncoder passwordEncoder;
+    private final AppLog appLog;
 
     public ProfileService(
             UserRepository userRepository,
             UserContextService userContextService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            AppLog appLog) {
         this.userRepository = userRepository;
         this.userContextService = userContextService;
         this.passwordEncoder = passwordEncoder;
+        this.appLog = appLog;
     }
 
     @Transactional(readOnly = true)
@@ -54,6 +58,11 @@ public class ProfileService {
                 request.getDisplayName() == null || request.getDisplayName().isBlank()
                         ? null
                         : request.getDisplayName());
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        appLog.info(
+                "PROFILE",
+                "User " + saved.getEmail() + " updated profile"
+                        + (changingPassword ? " and changed password" : "") + ".");
+        return saved;
     }
 }
