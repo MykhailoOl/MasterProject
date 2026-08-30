@@ -54,11 +54,12 @@
             <input id="apiKey" type="password" th:field="*{apiKey}" required autocomplete="off">
             <p class="error" th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}"></p>
             <p class="hint">
-                Saving runs a live health check and replaces any existing key for that provider.
+                Saving verifies only that the provider accepts the API key and replaces any existing key.
                 OpenAI: GET /v1/models, then chat completions with gpt-5-mini.
-                Anthropic: POST /v1/messages with claude-haiku-4-5.
+                Anthropic: GET /v1/models, then messages with claude-haiku-4-5.
                 Gemini: GET /v1beta/models, then generateContent with gemini-3.7-flash.
-                Grok: GET /v1/models, then responses with grok-4.6.
+                Grok: GET /v1/api-key, then responses with grok-4.6.
+                Model access, credits, and licenses are checked only when a model is used.
             </p>
 
             <div class="actions">

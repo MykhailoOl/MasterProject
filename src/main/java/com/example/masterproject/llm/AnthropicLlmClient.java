@@ -34,27 +34,20 @@ public class AnthropicLlmClient implements LlmClient {
 
     @Override
     public LlmHealthResult checkHealth(String apiKey) {
-        ObjectNode body = objectMapper.createObjectNode();
-        body.put("model", settings.model());
-        body.put("max_tokens", settings.healthCheckMaxTokens());
-        ArrayNode messages = body.putArray("messages");
-        messages.addObject().put("role", "user").put("content", "ping");
         try {
-            restClient.post()
-                    .uri("/v1/messages")
-                    .contentType(MediaType.APPLICATION_JSON)
+            restClient.get()
+                    .uri("/v1/models")
                     .header("x-api-key", apiKey)
                     .header("anthropic-version", ANTHROPIC_VERSION)
-                    .body(body)
                     .retrieve()
                     .toBodilessEntity();
-            return new LlmHealthResult(true, "Anthropic API key is valid. Using model " + settings.model() + ".");
+            return new LlmHealthResult(true, "Anthropic API key is valid.");
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Anthropic health check failed: HTTP " + ex.getStatusCode().value());
-            return new LlmHealthResult(false, "Anthropic check failed: HTTP " + ex.getStatusCode().value());
+            appLog.error("LLM", LlmErrorDetails.http("Anthropic", "API key check", "GET /v1/models", ex));
+            return new LlmHealthResult(false, "Anthropic API key check failed.");
         } catch (Exception ex) {
-            appLog.error("LLM", "Anthropic health check failed", ex);
-            return new LlmHealthResult(false, "Anthropic check failed: " + ex.getMessage());
+            appLog.error("LLM", LlmErrorDetails.unexpected("Anthropic", "API key check", "GET /v1/models", ex));
+            return new LlmHealthResult(false, "Anthropic API key check failed.");
         }
     }
 
@@ -94,12 +87,13 @@ public class AnthropicLlmClient implements LlmClient {
             }
             return text.toString().trim();
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Anthropic request failed: HTTP " + ex.getStatusCode().value());
-            throw new IllegalStateException(
-                    "Anthropic request failed: HTTP " + ex.getStatusCode().value(), ex);
+            appLog.error("LLM", LlmErrorDetails.http("Anthropic", "completion request", "POST /v1/messages", ex));
+            throw new IllegalStateException("Anthropic could not generate a response. Please try again.", ex);
         } catch (Exception ex) {
-            appLog.error("LLM", "Anthropic request failed", ex);
-            throw new IllegalStateException("Anthropic request failed: " + ex.getMessage(), ex);
+            appLog.error(
+                    "LLM",
+                    LlmErrorDetails.unexpected("Anthropic", "completion request", "POST /v1/messages", ex));
+            throw new IllegalStateException("Anthropic could not generate a response. Please try again.", ex);
         }
     }
 }

@@ -9,7 +9,6 @@ public record LlmRuntimeSettings(
         double simplifyTemperature,
         int elicitationMaxTokens,
         int simplifyMaxTokens,
-        int healthCheckMaxTokens,
         String healthCheckDescription) {
 
     public static LlmRuntimeSettings forProvider(LlmProvider provider) {
@@ -21,7 +20,6 @@ public record LlmRuntimeSettings(
                     0.2,
                     2000,
                     1000,
-                    64,
                     "GET /v1/models");
             case ANTHROPIC -> new LlmRuntimeSettings(
                     LlmProvider.ANTHROPIC,
@@ -30,8 +28,7 @@ public record LlmRuntimeSettings(
                     0.2,
                     2000,
                     1000,
-                    16,
-                    "POST /v1/messages (max_tokens=16)");
+                    "GET /v1/models");
             case GEMINI -> new LlmRuntimeSettings(
                     LlmProvider.GEMINI,
                     "gemini-3.7-flash",
@@ -39,7 +36,6 @@ public record LlmRuntimeSettings(
                     0.2,
                     2000,
                     1000,
-                    16,
                     "GET /v1beta/models");
             case GROK -> new LlmRuntimeSettings(
                     LlmProvider.GROK,
@@ -48,8 +44,7 @@ public record LlmRuntimeSettings(
                     0.2,
                     2000,
                     1000,
-                    64,
-                    "GET /v1/models");
+                    "GET /v1/api-key");
         };
     }
 }

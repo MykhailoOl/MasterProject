@@ -128,7 +128,8 @@ public class ProjectController {
             @Valid @ModelAttribute("answerQuestionRequest") AnswerQuestionRequest request,
             BindingResult bindingResult,
             @RequestParam(value = "selectedChoice", required = false) String selectedChoice,
-            Model model) {
+            Model model,
+            RedirectAttributes redirectAttributes) {
         String resolvedAnswer = resolveAnswer(selectedChoice, request.getAnswerText());
         request.setAnswerText(resolvedAnswer);
         if (resolvedAnswer == null || resolvedAnswer.isBlank()) {
@@ -139,8 +140,14 @@ public class ProjectController {
             model.addAttribute("view", view);
             return "projects/elicit";
         }
-        elicitationService.submitAnswer(id, questionId, resolvedAnswer);
-        return "redirect:/projects/" + id + "/elicit";
+        try {
+            elicitationService.submitAnswer(id, questionId, resolvedAnswer);
+            return "redirect:/projects/" + id + "/elicit";
+        } catch (IllegalStateException ex) {
+            appLog.error("ELICITATION", "Could not process an answer for project #" + id, ex);
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+            return "redirect:/projects/" + id + "/elicit";
+        }
     }
 
     @PostMapping("/{id}/export/spec")

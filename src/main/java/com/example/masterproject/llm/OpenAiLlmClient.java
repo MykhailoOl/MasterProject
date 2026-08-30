@@ -38,13 +38,13 @@ public class OpenAiLlmClient implements LlmClient {
                     .header("Authorization", "Bearer " + apiKey)
                     .retrieve()
                     .toBodilessEntity();
-            return new LlmHealthResult(true, "OpenAI API key is valid. Using model " + settings.model() + ".");
+            return new LlmHealthResult(true, "OpenAI API key is valid.");
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "OpenAI health check failed: HTTP " + ex.getStatusCode().value());
-            return new LlmHealthResult(false, "OpenAI check failed: HTTP " + ex.getStatusCode().value());
+            appLog.error("LLM", LlmErrorDetails.http("OpenAI", "API key check", "GET /v1/models", ex));
+            return new LlmHealthResult(false, "OpenAI API key check failed.");
         } catch (Exception ex) {
-            appLog.error("LLM", "OpenAI health check failed", ex);
-            return new LlmHealthResult(false, "OpenAI check failed: " + ex.getMessage());
+            appLog.error("LLM", LlmErrorDetails.unexpected("OpenAI", "API key check", "GET /v1/models", ex));
+            return new LlmHealthResult(false, "OpenAI API key check failed.");
         }
     }
 
@@ -73,12 +73,13 @@ public class OpenAiLlmClient implements LlmClient {
             }
             return content.asText().trim();
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "OpenAI request failed: HTTP " + ex.getStatusCode().value());
-            throw new IllegalStateException(
-                    "OpenAI request failed: HTTP " + ex.getStatusCode().value(), ex);
+            appLog.error("LLM", LlmErrorDetails.http("OpenAI", "completion request", "POST /v1/chat/completions", ex));
+            throw new IllegalStateException("OpenAI could not generate a response. Please try again.", ex);
         } catch (Exception ex) {
-            appLog.error("LLM", "OpenAI request failed", ex);
-            throw new IllegalStateException("OpenAI request failed: " + ex.getMessage(), ex);
+            appLog.error(
+                    "LLM",
+                    LlmErrorDetails.unexpected("OpenAI", "completion request", "POST /v1/chat/completions", ex));
+            throw new IllegalStateException("OpenAI could not generate a response. Please try again.", ex);
         }
     }
 }

@@ -59,7 +59,7 @@ public class LlmSettingsController {
             redirectAttributes.addFlashAttribute(result.ok() ? "message" : "errorMessage", result.message());
         } catch (Exception ex) {
             appLog.error("LLM", "Stored key check failed for " + provider, ex);
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "The saved API key could not be checked.");
         }
         return "redirect:/settings/llm";
     }

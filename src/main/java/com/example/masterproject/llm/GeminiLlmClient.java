@@ -43,15 +43,14 @@ public class GeminiLlmClient implements LlmClient {
     @Override
     public LlmHealthResult checkHealth(String apiKey) {
         try {
-            String chosen = resolveWorkingModel(apiKey);
-            return new LlmHealthResult(true, "Gemini API key is valid. Using model " + chosen + ".");
+            listGenerateContentModels(apiKey);
+            return new LlmHealthResult(true, "Gemini API key is valid.");
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Gemini health check failed with HTTP " + ex.getStatusCode().value()
-                    + ": " + shortBody(ex));
-            return new LlmHealthResult(false, "Gemini check failed: HTTP " + ex.getStatusCode().value());
+            appLog.error("LLM", LlmErrorDetails.http("Gemini", "API key check", "GET /v1beta/models", ex));
+            return new LlmHealthResult(false, "Gemini API key check failed.");
         } catch (Exception ex) {
-            appLog.error("LLM", "Gemini health check failed", ex);
-            return new LlmHealthResult(false, "Gemini check failed: " + ex.getMessage());
+            appLog.error("LLM", LlmErrorDetails.unexpected("Gemini", "API key check", "GET /v1beta/models", ex));
+            return new LlmHealthResult(false, "Gemini API key check failed.");
         }
     }
 
@@ -65,18 +64,35 @@ public class GeminiLlmClient implements LlmClient {
                 if (first.getStatusCode().value() != 404) {
                     throw first;
                 }
-                appLog.warn("LLM", "Gemini model " + model + " returned HTTP 404. Looking up an available model.");
+                appLog.warn(
+                        "LLM",
+                        LlmErrorDetails.http(
+                                "Gemini",
+                                "completion request for model " + model,
+                                "POST /v1beta/models/" + model + ":generateContent",
+                                first)
+                                + " | action=looking up an available model");
                 model = resolveWorkingModel(apiKey);
                 return generateContent(apiKey, model, buildBody(systemPrompt, userPrompt, temperature, maxTokens, model));
             }
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Gemini request failed: HTTP " + ex.getStatusCode().value()
-                    + " for model " + model + ": " + shortBody(ex));
-            throw new IllegalStateException(
-                    "Gemini request failed: HTTP " + ex.getStatusCode().value() + " (" + shortBody(ex) + ")", ex);
+            appLog.error(
+                    "LLM",
+                    LlmErrorDetails.http(
+                            "Gemini",
+                            "completion request for model " + model,
+                            "POST /v1beta/models/" + model + ":generateContent",
+                            ex));
+            throw new IllegalStateException("Gemini could not generate a response. Please try again.", ex);
         } catch (Exception ex) {
-            appLog.error("LLM", "Gemini request failed", ex);
-            throw new IllegalStateException("Gemini request failed: " + ex.getMessage(), ex);
+            appLog.error(
+                    "LLM",
+                    LlmErrorDetails.unexpected(
+                            "Gemini",
+                            "completion request for model " + model,
+                            "POST /v1beta/models/" + model + ":generateContent",
+                            ex));
+            throw new IllegalStateException("Gemini could not generate a response. Please try again.", ex);
         }
     }
 
@@ -206,12 +222,4 @@ public class GeminiLlmClient implements LlmClient {
         return name.startsWith("models/") ? name.substring("models/".length()) : name;
     }
 
-    private String shortBody(RestClientResponseException ex) {
-        String body = ex.getResponseBodyAsString();
-        if (body == null || body.isBlank()) {
-            return "no response body";
-        }
-        String compact = body.replaceAll("\\s+", " ").trim();
-        return compact.length() > 300 ? compact.substring(0, 300) + "..." : compact;
-    }
 }

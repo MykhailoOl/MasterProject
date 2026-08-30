@@ -86,9 +86,9 @@ public class LlmCredentialService {
             credential.setCreatedAt(Instant.now());
         }
         credentialRepository.save(credential);
-        String message = updating
-                ? health.message() + " API key replaced for " + displayName(provider) + "."
-                : health.message() + " API key saved for " + displayName(provider) + ".";
+        String message = displayName(provider) + " API key "
+                + (updating ? "replaced" : "saved")
+                + " and verified.";
         appLog.info(
                 "LLM",
                 "User " + user.getEmail() + (updating ? " replaced" : " saved")

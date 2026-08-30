@@ -34,17 +34,17 @@ public class GrokLlmClient implements LlmClient {
     public LlmHealthResult checkHealth(String apiKey) {
         try {
             restClient.get()
-                    .uri("/v1/models")
+                    .uri("/v1/api-key")
                     .header("Authorization", "Bearer " + apiKey)
                     .retrieve()
                     .toBodilessEntity();
-            return new LlmHealthResult(true, "Grok API key is valid. Using model " + settings.model() + ".");
+            return new LlmHealthResult(true, "Grok API key is valid.");
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Grok health check failed: HTTP " + ex.getStatusCode().value());
-            return new LlmHealthResult(false, "Grok check failed: HTTP " + ex.getStatusCode().value());
+            appLog.error("LLM", LlmErrorDetails.http("Grok", "API key check", "GET /v1/api-key", ex));
+            return new LlmHealthResult(false, "Grok API key check failed.");
         } catch (Exception ex) {
-            appLog.error("LLM", "Grok health check failed", ex);
-            return new LlmHealthResult(false, "Grok check failed: " + ex.getMessage());
+            appLog.error("LLM", LlmErrorDetails.unexpected("Grok", "API key check", "GET /v1/api-key", ex));
+            return new LlmHealthResult(false, "Grok API key check failed.");
         }
     }
 
@@ -74,12 +74,13 @@ public class GrokLlmClient implements LlmClient {
             }
             return text.trim();
         } catch (RestClientResponseException ex) {
-            appLog.error("LLM", "Grok request failed: HTTP " + ex.getStatusCode().value());
-            throw new IllegalStateException(
-                    "Grok request failed: HTTP " + ex.getStatusCode().value(), ex);
+            appLog.error("LLM", LlmErrorDetails.http("Grok", "completion request", "POST /v1/responses", ex));
+            throw new IllegalStateException("Grok could not generate a response. Please try again.", ex);
         } catch (Exception ex) {
-            appLog.error("LLM", "Grok request failed", ex);
-            throw new IllegalStateException("Grok request failed: " + ex.getMessage(), ex);
+            appLog.error(
+                    "LLM",
+                    LlmErrorDetails.unexpected("Grok", "completion request", "POST /v1/responses", ex));
+            throw new IllegalStateException("Grok could not generate a response. Please try again.", ex);
         }
     }
 
