@@ -41,6 +41,9 @@ public class RequirementSlot {
     @Column(columnDefinition = "TEXT")
     private String value;
 
+    @Column(name = "assessment_json", columnDefinition = "TEXT")
+    private String assessmentJson;
+
     @DecimalMin("0.0")
     @DecimalMax("1.0")
     @Column(nullable = false)
@@ -85,6 +88,14 @@ public class RequirementSlot {
 
     public void setValue(String value) {
         this.value = value;
+    }
+
+    public String getAssessmentJson() {
+        return assessmentJson;
+    }
+
+    public void setAssessmentJson(String assessmentJson) {
+        this.assessmentJson = assessmentJson;
     }
 
     public double getCompleteness() {

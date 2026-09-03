@@ -38,6 +38,7 @@ public class ProjectService {
     private final ElicitationSessionRepository sessionRepository;
     private final RequirementSlotRepository requirementSlotRepository;
     private final ProjectCategoryRepository projectCategoryRepository;
+    private final RequirementAssessmentService requirementAssessmentService;
     private final UserContextService userContextService;
     private final LlmCredentialService llmCredentialService;
     private final AppLog appLog;
@@ -47,6 +48,7 @@ public class ProjectService {
             ElicitationSessionRepository sessionRepository,
             RequirementSlotRepository requirementSlotRepository,
             ProjectCategoryRepository projectCategoryRepository,
+            RequirementAssessmentService requirementAssessmentService,
             UserContextService userContextService,
             LlmCredentialService llmCredentialService,
             AppLog appLog) {
@@ -54,6 +56,7 @@ public class ProjectService {
         this.sessionRepository = sessionRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.projectCategoryRepository = projectCategoryRepository;
+        this.requirementAssessmentService = requirementAssessmentService;
         this.userContextService = userContextService;
         this.llmCredentialService = llmCredentialService;
         this.appLog = appLog;
@@ -95,6 +98,7 @@ public class ProjectService {
         session.setConditionTag(StudyCondition.GUIDED);
         sessionRepository.save(session);
 
+        List<RequirementSlot> slots = new ArrayList<>();
         for (RequirementCategory category : ordered) {
             TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(category);
 
@@ -110,11 +114,13 @@ public class ProjectService {
             slot.setProject(savedProject);
             slot.setCategory(category);
             slot.setValue(null);
+            slot.setAssessmentJson(requirementAssessmentService.emptyAssessmentJson(definition));
             slot.setCompleteness(0.0);
             slot.setSource(RequirementSource.USER);
             slot.setUpdatedAt(Instant.now());
-            requirementSlotRepository.save(slot);
+            slots.add(requirementSlotRepository.save(slot));
         }
+        requirementAssessmentService.initializeFromIdea(savedProject, slots);
 
         appLog.info(
                 "PROJECT",

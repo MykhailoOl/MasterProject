@@ -89,6 +89,7 @@ public class AdminDataService {
             Long id,
             Long sessionId,
             String category,
+            String focusCriterion,
             String questionText,
             String simplifiedText,
             String optionsJson,
@@ -108,6 +109,7 @@ public class AdminDataService {
             Long projectId,
             String category,
             String value,
+            String assessmentJson,
             double completeness,
             String source,
             Instant updatedAt) {
@@ -270,13 +272,14 @@ public class AdminDataService {
                                     nullable(row.completedAt())))
                             .toList());
             addCsv(zip, "questions.csv",
-                    List.of("id", "session_id", "category", "question_text", "simplified_text",
-                            "options_json", "question_order", "created_at"),
+                    List.of("id", "session_id", "category", "focus_criterion", "question_text",
+                            "simplified_text", "options_json", "question_order", "created_at"),
                     data.questions().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.sessionId(),
                                     row.category(),
+                                    nullable(row.focusCriterion()),
                                     row.questionText(),
                                     nullable(row.simplifiedText()),
                                     nullable(row.optionsJson()),
@@ -293,13 +296,15 @@ public class AdminDataService {
                                     row.answeredAt()))
                             .toList());
             addCsv(zip, "slots.csv",
-                    List.of("id", "project_id", "category", "value", "completeness", "source", "updated_at"),
+                    List.of("id", "project_id", "category", "value", "assessment_json",
+                            "completeness", "source", "updated_at"),
                     data.slots().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.projectId(),
                                     row.category(),
                                     nullable(row.value()),
+                                    nullable(row.assessmentJson()),
                                     row.completeness(),
                                     row.source(),
                                     row.updatedAt()))
@@ -370,6 +375,7 @@ public class AdminDataService {
                         question.getId(),
                         question.getSession().getId(),
                         question.getCategory().name(),
+                        question.getFocusCriterion(),
                         question.getQuestionText(),
                         question.getSimplifiedText(),
                         question.getOptionsJson(),
@@ -389,6 +395,7 @@ public class AdminDataService {
                         slot.getProject().getId(),
                         slot.getCategory().name(),
                         slot.getValue(),
+                        slot.getAssessmentJson(),
                         slot.getCompleteness(),
                         slot.getSource().name(),
                         slot.getUpdatedAt()))

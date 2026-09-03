@@ -48,6 +48,10 @@ public class Question {
     @Column(name = "options_json", columnDefinition = "TEXT")
     private String optionsJson;
 
+    @Size(max = 64)
+    @Column(name = "focus_criterion", length = 64)
+    private String focusCriterion;
+
     @Min(1)
     @Column(name = "question_order", nullable = false)
     private int questionOrder;
@@ -102,6 +106,14 @@ public class Question {
 
     public void setOptionsJson(String optionsJson) {
         this.optionsJson = optionsJson;
+    }
+
+    public String getFocusCriterion() {
+        return focusCriterion;
+    }
+
+    public void setFocusCriterion(String focusCriterion) {
+        this.focusCriterion = focusCriterion;
     }
 
     public int getQuestionOrder() {
