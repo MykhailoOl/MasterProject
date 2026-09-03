@@ -245,13 +245,21 @@ public class ElicitationService {
                 categoryHistory.isBlank() ? "(none)" : categoryHistory,
                 knownContext.isBlank() ? "(none yet)" : knownContext);
 
-        String raw = llmCredentialService.complete(
-                project.getLlmProvider(),
-                systemPrompt,
-                userPrompt,
-                settings.elicitationTemperature(),
-                settings.elicitationMaxTokens());
-        String questionText = normalizeQuestion(raw, focus.fallbackQuestion(), categoryQuestions);
+        String questionText = focus.fallbackQuestion();
+        try {
+            String raw = llmCredentialService.complete(
+                    project.getLlmProvider(),
+                    systemPrompt,
+                    userPrompt,
+                    settings.elicitationTemperature(),
+                    settings.elicitationMaxTokens());
+            questionText = normalizeQuestion(raw, focus.fallbackQuestion(), categoryQuestions);
+        } catch (IllegalStateException ex) {
+            appLog.warn(
+                    "ELICITATION",
+                    "Using a fallback question for project #" + project.getId()
+                            + " because the provider was unavailable.");
+        }
 
         return persistQuestion(
                 session,
@@ -282,16 +290,15 @@ public class ElicitationService {
                 project.getTitle(),
                 knownContext.isBlank() ? "(none)" : knownContext);
 
-        String raw = llmCredentialService.complete(
-                project.getLlmProvider(),
-                systemPrompt,
-                userPrompt,
-                settings.elicitationTemperature(),
-                settings.elicitationMaxTokens());
-
         String prompt = "Choose the final project title. Pick one suggestion or write your own.";
         List<String> choices = fallbackTitleChoices(project);
         try {
+            String raw = llmCredentialService.complete(
+                    project.getLlmProvider(),
+                    systemPrompt,
+                    userPrompt,
+                    settings.elicitationTemperature(),
+                    settings.elicitationMaxTokens());
             JsonNode node = objectMapper.readTree(extractJson(raw));
             if (node.hasNonNull("prompt") && !node.get("prompt").asText().isBlank()) {
                 prompt = node.get("prompt").asText().trim();
@@ -308,7 +315,11 @@ public class ElicitationService {
                     choices = parsed;
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+            appLog.warn(
+                    "ELICITATION",
+                    "Using fallback title choices for project #" + project.getId()
+                            + " because the provider response was unavailable or invalid.");
         }
 
         String optionsJson;
@@ -340,16 +351,22 @@ public class ElicitationService {
                 project.getTitle(),
                 knownContext.isBlank() ? "(none)" : knownContext);
 
-        String draft = llmCredentialService.complete(
-                project.getLlmProvider(),
-                systemPrompt,
-                userPrompt,
-                settings.elicitationTemperature(),
-                settings.elicitationMaxTokens());
-        if (draft == null || draft.isBlank()) {
-            draft = project.getInitialIdea();
-        } else {
-            draft = draft.trim();
+        String draft = project.getInitialIdea();
+        try {
+            String generated = llmCredentialService.complete(
+                    project.getLlmProvider(),
+                    systemPrompt,
+                    userPrompt,
+                    settings.elicitationTemperature(),
+                    settings.elicitationMaxTokens());
+            if (generated != null && !generated.isBlank()) {
+                draft = generated.trim();
+            }
+        } catch (IllegalStateException ex) {
+            appLog.warn(
+                    "ELICITATION",
+                    "Using the initial idea as the final summary draft for project #" + project.getId()
+                            + " because the provider was unavailable.");
         }
 
         String prompt = "Review and edit the overall idea so it fits the gathered requirements "

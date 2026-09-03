@@ -30,6 +30,7 @@ public class LlmCredentialService {
     private final UserContextService userContextService;
     private final SecretEncryptionService encryptionService;
     private final LlmClientRegistry llmClientRegistry;
+    private final LlmRequestExecutor llmRequestExecutor;
     private final AppLog appLog;
 
     public LlmCredentialService(
@@ -37,11 +38,13 @@ public class LlmCredentialService {
             UserContextService userContextService,
             SecretEncryptionService encryptionService,
             LlmClientRegistry llmClientRegistry,
+            LlmRequestExecutor llmRequestExecutor,
             AppLog appLog) {
         this.credentialRepository = credentialRepository;
         this.userContextService = userContextService;
         this.encryptionService = encryptionService;
         this.llmClientRegistry = llmClientRegistry;
+        this.llmRequestExecutor = llmRequestExecutor;
         this.appLog = appLog;
     }
 
@@ -122,7 +125,10 @@ public class LlmCredentialService {
             LlmProvider provider, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         String apiKey = resolveApiKey(provider);
         appLog.info("LLM", "Calling " + displayName(provider) + " for " + userContextService.getCurrentUserEmailOrNull() + ".");
-        return llmClientRegistry.require(provider).complete(apiKey, systemPrompt, userPrompt, temperature, maxTokens);
+        LlmClient client = llmClientRegistry.require(provider);
+        return llmRequestExecutor.execute(
+                provider,
+                () -> client.complete(apiKey, systemPrompt, userPrompt, temperature, maxTokens));
     }
 
     private LlmProviderView toView(LlmProvider provider, UserLlmCredential credential) {

@@ -2,6 +2,10 @@ package com.example.masterproject.llm;
 
 import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.enums.LlmProvider;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -13,6 +17,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class OpenAiLlmClient implements LlmClient {
+
+    private static final List<String> PREFERRED_MODELS = List.of("gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini");
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -50,36 +56,69 @@ public class OpenAiLlmClient implements LlmClient {
 
     @Override
     public String complete(String apiKey, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
-        ObjectNode body = objectMapper.createObjectNode();
-        body.put("model", settings.model());
-        body.put("max_completion_tokens", maxTokens);
-        ArrayNode messages = body.putArray("messages");
-        messages.addObject().put("role", "system").put("content", systemPrompt);
-        messages.addObject().put("role", "user").put("content", userPrompt);
-
+        RestClientResponseException last = null;
         try {
-            appLog.info("LLM", "Calling OpenAI chat completions with model " + settings.model() + ".");
-            String response = restClient.post()
-                    .uri("/v1/chat/completions")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
-            JsonNode root = objectMapper.readTree(response);
-            JsonNode content = root.path("choices").path(0).path("message").path("content");
-            if (content.isMissingNode() || content.asText().isBlank()) {
-                throw new IllegalStateException("OpenAI returned an empty response");
+            for (String model : models()) {
+                try {
+                    return completeChat(apiKey, model, systemPrompt, userPrompt, maxTokens);
+                } catch (RestClientResponseException ex) {
+                    last = ex;
+                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                        throw completionFailure(ex);
+                    }
+                    appLog.warn(
+                            "LLM",
+                            LlmErrorDetails.http(
+                                    "OpenAI",
+                                    "completion request for model " + model,
+                                    "POST /v1/chat/completions",
+                                    ex)
+                                    + " | action=trying another OpenAI model");
+                }
             }
-            return content.asText().trim();
-        } catch (RestClientResponseException ex) {
-            appLog.error("LLM", LlmErrorDetails.http("OpenAI", "completion request", "POST /v1/chat/completions", ex));
-            throw new IllegalStateException("OpenAI could not generate a response. Please try again.", ex);
+            throw completionFailure(Objects.requireNonNull(last));
+        } catch (IllegalStateException ex) {
+            throw ex;
         } catch (Exception ex) {
             appLog.error(
                     "LLM",
                     LlmErrorDetails.unexpected("OpenAI", "completion request", "POST /v1/chat/completions", ex));
             throw new IllegalStateException("OpenAI could not generate a response. Please try again.", ex);
         }
+    }
+
+    private List<String> models() {
+        LinkedHashSet<String> models = new LinkedHashSet<>();
+        models.add(settings.model());
+        models.addAll(PREFERRED_MODELS);
+        return new ArrayList<>(models);
+    }
+
+    private String completeChat(String apiKey, String model, String systemPrompt, String userPrompt, int maxTokens) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("model", model);
+        body.put("max_completion_tokens", maxTokens);
+        ArrayNode messages = body.putArray("messages");
+        messages.addObject().put("role", "system").put("content", systemPrompt);
+        messages.addObject().put("role", "user").put("content", userPrompt);
+
+        appLog.info("LLM", "Calling OpenAI chat completions with model " + model + ".");
+        String response = restClient.post()
+                .uri("/v1/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + apiKey)
+                .body(body)
+                .retrieve()
+                .body(String.class);
+        JsonNode content = objectMapper.readTree(response).path("choices").path(0).path("message").path("content");
+        if (content.isMissingNode() || content.asText().isBlank()) {
+            throw new IllegalStateException("OpenAI returned an empty response");
+        }
+        return content.asText().trim();
+    }
+
+    private IllegalStateException completionFailure(RestClientResponseException error) {
+        appLog.error("LLM", LlmErrorDetails.http("OpenAI", "completion request", "POST /v1/chat/completions", error));
+        return new IllegalStateException(LlmFailureMessages.forHttp("OpenAI", error), error);
     }
 }

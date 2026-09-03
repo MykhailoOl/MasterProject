@@ -79,12 +79,21 @@ public class RequirementAssessmentService {
                 %s
                 """.formatted(project.getInitialIdea(), catalogFor(bodySlots));
 
-        String raw = llmCredentialService.complete(
-                project.getLlmProvider(),
-                systemPrompt,
-                userPrompt,
-                0.0,
-                settings.elicitationMaxTokens());
+        String raw;
+        try {
+            raw = llmCredentialService.complete(
+                    project.getLlmProvider(),
+                    systemPrompt,
+                    userPrompt,
+                    0.0,
+                    settings.elicitationMaxTokens());
+        } catch (IllegalStateException ex) {
+            appLog.warn(
+                    "ELICITATION",
+                    "Initial requirement extraction was skipped for project #" + project.getId()
+                            + " because the provider was unavailable.");
+            return;
+        }
 
         try {
             Map<RequirementCategory, JsonNode> results = initialResults(raw);
@@ -164,14 +173,13 @@ public class RequirementAssessmentService {
                 blankAsNone(question.getFocusCriterion()),
                 answerText);
 
-        String raw = llmCredentialService.complete(
-                project.getLlmProvider(),
-                systemPrompt,
-                userPrompt,
-                0.0,
-                settings.elicitationMaxTokens());
-
         try {
+            String raw = llmCredentialService.complete(
+                    project.getLlmProvider(),
+                    systemPrompt,
+                    userPrompt,
+                    0.0,
+                    settings.elicitationMaxTokens());
             JsonNode result = objectMapper.readTree(extractJson(raw));
             Map<String, CriterionStatus> statuses =
                     parseStatuses(definition, result.get("statuses"), previous);

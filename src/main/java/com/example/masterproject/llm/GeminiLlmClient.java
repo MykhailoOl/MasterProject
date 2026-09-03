@@ -4,7 +4,9 @@ import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.enums.LlmProvider;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -57,33 +59,38 @@ public class GeminiLlmClient implements LlmClient {
     @Override
     public String complete(String apiKey, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         String model = settings.model();
+        RestClientResponseException last = null;
         try {
-            try {
-                return generateContent(apiKey, model, buildBody(systemPrompt, userPrompt, temperature, maxTokens, model));
-            } catch (RestClientResponseException first) {
-                if (first.getStatusCode().value() != 404) {
-                    throw first;
+            for (String candidate : models()) {
+                model = candidate;
+                try {
+                    return generateContent(
+                            apiKey, candidate, buildBody(systemPrompt, userPrompt, temperature, maxTokens, candidate));
+                } catch (RestClientResponseException ex) {
+                    last = ex;
+                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                        throw completionFailure(candidate, ex);
+                    }
+                    appLog.warn(
+                            "LLM",
+                            LlmErrorDetails.http(
+                                    "Gemini",
+                                    "completion request for model " + candidate,
+                                    "POST /v1beta/models/" + candidate + ":generateContent",
+                                    ex)
+                                    + " | action=trying another Gemini model");
                 }
-                appLog.warn(
-                        "LLM",
-                        LlmErrorDetails.http(
-                                "Gemini",
-                                "completion request for model " + model,
-                                "POST /v1beta/models/" + model + ":generateContent",
-                                first)
-                                + " | action=looking up an available model");
-                model = resolveWorkingModel(apiKey);
-                return generateContent(apiKey, model, buildBody(systemPrompt, userPrompt, temperature, maxTokens, model));
             }
+            String listed = resolveWorkingModel(apiKey);
+            model = listed;
+            if (models().stream().noneMatch(item -> item.equalsIgnoreCase(listed))) {
+                return generateContent(apiKey, listed, buildBody(systemPrompt, userPrompt, temperature, maxTokens, listed));
+            }
+            throw completionFailure(model, Objects.requireNonNull(last));
+        } catch (IllegalStateException ex) {
+            throw ex;
         } catch (RestClientResponseException ex) {
-            appLog.error(
-                    "LLM",
-                    LlmErrorDetails.http(
-                            "Gemini",
-                            "completion request for model " + model,
-                            "POST /v1beta/models/" + model + ":generateContent",
-                            ex));
-            throw new IllegalStateException("Gemini could not generate a response. Please try again.", ex);
+            throw completionFailure(model, ex);
         } catch (Exception ex) {
             appLog.error(
                     "LLM",
@@ -94,6 +101,24 @@ public class GeminiLlmClient implements LlmClient {
                             ex));
             throw new IllegalStateException("Gemini could not generate a response. Please try again.", ex);
         }
+    }
+
+    private List<String> models() {
+        LinkedHashSet<String> models = new LinkedHashSet<>();
+        models.add(settings.model());
+        models.addAll(PREFERRED_MODELS);
+        return new ArrayList<>(models);
+    }
+
+    private IllegalStateException completionFailure(String model, RestClientResponseException error) {
+        appLog.error(
+                "LLM",
+                LlmErrorDetails.http(
+                        "Gemini",
+                        "completion request for model " + model,
+                        "POST /v1beta/models/" + model + ":generateContent",
+                        error));
+        return new IllegalStateException(LlmFailureMessages.forHttp("Gemini", error), error);
     }
 
     private ObjectNode buildBody(

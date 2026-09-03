@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,6 +95,23 @@ class RequirementAssessmentServiceTests {
     }
 
     @Test
+    void providerOutageDoesNotPreventProjectInitialization() {
+        when(llmCredentialService.complete(
+                        eq(LlmProvider.OPENAI),
+                        anyString(),
+                        anyString(),
+                        anyDouble(),
+                        anyInt()))
+                .thenThrow(new IllegalStateException("Provider unavailable"));
+
+        service.initializeFromIdea(project, List.of(slot));
+
+        assertThat(slot.getValue()).isNull();
+        assertThat(slot.getCompleteness()).isZero();
+        verify(slotRepository, never()).saveAll(List.of(slot));
+    }
+
+    @Test
     void answerScoreIsComputedLocallyFromCriterionStatuses() throws Exception {
         Question question = question("problem");
         when(llmCredentialService.complete(
@@ -137,6 +155,24 @@ class RequirementAssessmentServiceTests {
 
         assertThat(slot.getValue()).isEqualTo("Students miss deadlines.");
         assertThat(slot.getCompleteness()).isEqualTo(0.125);
+    }
+
+    @Test
+    void providerOutagePreservesTheAnswerAndAdvancesTheFocusedCriterion() {
+        Question question = question("problem");
+        when(llmCredentialService.complete(
+                        eq(LlmProvider.OPENAI),
+                        anyString(),
+                        anyString(),
+                        anyDouble(),
+                        anyInt()))
+                .thenThrow(new IllegalStateException("Provider unavailable"));
+
+        service.assessAnswer(project, slot, question, "Students miss deadlines.");
+
+        assertThat(slot.getValue()).isEqualTo("Students miss deadlines.");
+        assertThat(slot.getCompleteness()).isEqualTo(0.125);
+        verify(slotRepository).save(slot);
     }
 
     private Question question(String focusCriterion) {

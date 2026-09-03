@@ -120,7 +120,14 @@ public class ProjectService {
             slot.setUpdatedAt(Instant.now());
             slots.add(requirementSlotRepository.save(slot));
         }
-        requirementAssessmentService.initializeFromIdea(savedProject, slots);
+        try {
+            requirementAssessmentService.initializeFromIdea(savedProject, slots);
+        } catch (RuntimeException ex) {
+            appLog.warn(
+                    "PROJECT",
+                    "Project #" + savedProject.getId()
+                            + " was created without initial extraction because the provider was unavailable.");
+        }
 
         appLog.info(
                 "PROJECT",
