@@ -17,4 +17,9 @@ public class CurrentUserAdvice {
     public String currentUserEmail() {
         return userContextService.getCurrentUserEmailOrNull();
     }
+
+    @ModelAttribute("currentUserAdmin")
+    public boolean currentUserAdmin() {
+        return userContextService.isCurrentUserAdmin();
+    }
 }

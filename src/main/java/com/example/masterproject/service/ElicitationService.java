@@ -49,6 +49,7 @@ public class ElicitationService {
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
     private final ProjectRepository projectRepository;
+    private final CompletenessSnapshotService completenessSnapshotService;
     private final LlmCredentialService llmCredentialService;
     private final ObjectMapper objectMapper;
     private final AppLog appLog;
@@ -61,6 +62,7 @@ public class ElicitationService {
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
             ProjectRepository projectRepository,
+            CompletenessSnapshotService completenessSnapshotService,
             LlmCredentialService llmCredentialService,
             ObjectMapper objectMapper,
             AppLog appLog) {
@@ -71,6 +73,7 @@ public class ElicitationService {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
         this.projectRepository = projectRepository;
+        this.completenessSnapshotService = completenessSnapshotService;
         this.llmCredentialService = llmCredentialService;
         this.objectMapper = objectMapper;
         this.appLog = appLog;
@@ -137,6 +140,7 @@ public class ElicitationService {
 
         project.setUpdatedAt(Instant.now());
         projectRepository.save(project);
+        completenessSnapshotService.captureAfterAnswer(project, session, answer);
 
         appLog.info(
                 "ELICITATION",
@@ -343,15 +347,24 @@ public class ElicitationService {
                 You consolidate requirement notes for a software specification.
                 Return ONLY compact JSON with keys value (string) and completeness (number 0 to 1).
                 value must be a short, actionable summary suitable for a coding agent.
-                completeness is how complete this category is after the new answer.
+                Score completeness using exactly one of 0, 0.25, 0.5, 0.75, or 1.
+                0 means absent or off-topic.
+                0.25 means relevant intent is present but remains vague and not actionable.
+                0.5 means partially actionable with major decisions or constraints still missing.
+                0.75 means mostly actionable with only minor details missing.
+                1 means complete, unambiguous, feasible, and verifiable enough that no further
+                question is needed for this category.
+                Judge only the supplied category and support the score with the consolidated value.
                 """;
         String userPrompt = """
                 Category: %s
+                Category purpose: %s
                 Existing notes: %s
                 Latest question: %s
                 Latest answer: %s
                 """.formatted(
                 TaxonomyCatalog.require(question.getCategory()).displayName(),
+                TaxonomyCatalog.require(question.getCategory()).description(),
                 slot.getValue() == null ? "" : slot.getValue(),
                 question.getQuestionText(),
                 answerText);
@@ -360,11 +373,11 @@ public class ElicitationService {
                 project.getLlmProvider(),
                 systemPrompt,
                 userPrompt,
-                settings.elicitationTemperature(),
+                0.0,
                 settings.elicitationMaxTokens());
 
         String value = answerText;
-        double completeness = Math.min(1.0, 0.35 * (slot.getCompleteness() + 1));
+        double completeness = rubricScore(Math.max(slot.getCompleteness(), 0.25));
         try {
             String json = extractJson(raw);
             JsonNode node = objectMapper.readTree(json);
@@ -372,7 +385,7 @@ public class ElicitationService {
                 value = node.get("value").asText().trim();
             }
             if (node.has("completeness")) {
-                completeness = Math.max(0.0, Math.min(1.0, node.get("completeness").asDouble()));
+                completeness = rubricScore(node.get("completeness").asDouble());
             }
         } catch (Exception ignored) {
             if (slot.getValue() != null && !slot.getValue().isBlank()) {
@@ -384,6 +397,11 @@ public class ElicitationService {
         slot.setCompleteness(completeness);
         slot.setUpdatedAt(Instant.now());
         requirementSlotRepository.save(slot);
+    }
+
+    private double rubricScore(double score) {
+        double bounded = Math.max(0.0, Math.min(1.0, score));
+        return Math.round(bounded * 4.0) / 4.0;
     }
 
     private String buildKnownContext(Project project) {

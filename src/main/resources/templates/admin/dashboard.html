@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin data</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <section class="project-header">
+        <h1>Admin data</h1>
+        <p class="muted">Application-wide accounts, projects, elicitation data, and generated exports.</p>
+        <div class="actions">
+            <a class="button" th:href="@{/admin/exports/study-data.json}">Download JSON</a>
+            <a class="button secondary" th:href="@{/admin/exports/study-data-csv.zip}">
+                Download CSV archive
+            </a>
+        </div>
+    </section>
+
+    <section class="metric-grid" aria-label="Data totals">
+        <article class="metric-card">
+            <strong th:text="${#lists.size(dashboard.users)}">0</strong>
+            <span>Users</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${#lists.size(dashboard.projects)}">0</strong>
+            <span>Projects</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.sessionCount}">0</strong>
+            <span>Sessions</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.questionCount}">0</strong>
+            <span>Questions</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.answerCount}">0</strong>
+            <span>Answers</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.slotCount}">0</strong>
+            <span>Slots</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.snapshotCount}">0</strong>
+            <span>Snapshots</span>
+        </article>
+        <article class="metric-card">
+            <strong th:text="${dashboard.exportCount}">0</strong>
+            <span>Exports</span>
+        </article>
+    </section>
+
+    <section class="admin-section">
+        <h2>Users</h2>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Email</th>
+                    <th>Display name</th>
+                    <th>Role</th>
+                    <th>Projects</th>
+                    <th>Created</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="user : ${dashboard.users}">
+                    <td th:text="${user.id}">1</td>
+                    <td th:text="${user.email}">user@example.com</td>
+                    <td th:text="${user.displayName ?: '—'}">Name</td>
+                    <td><span class="badge" th:text="${user.role}">USER</span></td>
+                    <td th:text="${user.projectCount}">0</td>
+                    <td th:text="${user.createdAt}">date</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="admin-section">
+        <h2>All projects</h2>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Owner</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>LLM</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="project : ${dashboard.projects}">
+                    <td th:text="${project.id}">1</td>
+                    <td>
+                        <span th:text="${project.ownerEmail}">user@example.com</span>
+                        <small class="muted" th:text="${'#' + project.ownerId}">#1</small>
+                    </td>
+                    <td th:text="${project.title}">Project</td>
+                    <td><span class="badge" th:text="${project.status}">IN_PROGRESS</span></td>
+                    <td th:text="${project.llmProvider ?: '—'}">OPENAI</td>
+                    <td th:text="${project.createdAt}">date</td>
+                    <td th:text="${project.updatedAt}">date</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

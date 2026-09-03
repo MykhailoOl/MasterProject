@@ -41,6 +41,17 @@ public class UserContextService {
         return authentication.getName();
     }
 
+    public boolean isCurrentUserAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+    }
+
     @Transactional(readOnly = true)
     public User requireAdmin() {
         User user = getCurrentUser();

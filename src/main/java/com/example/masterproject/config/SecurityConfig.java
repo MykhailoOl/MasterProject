@@ -44,6 +44,7 @@ public class SecurityConfig {
                     if (quickAdminLogin) {
                         auth.requestMatchers("/dev/login-as-admin").permitAll();
                     }
+                    auth.requestMatchers("/admin", "/admin/**").hasRole("ADMIN");
                     auth.anyRequest().authenticated();
                 })
                 .formLogin(form -> form

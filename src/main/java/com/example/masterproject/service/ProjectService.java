@@ -141,6 +141,7 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryResponse> listAllProjects() {
+        userContextService.requireAdmin();
         return projectRepository.findAllByOrderByUpdatedAtDesc().stream()
                 .map(this::toSummary)
                 .toList();

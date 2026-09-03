@@ -7,6 +7,7 @@
                 <a th:href="@{/projects/new}">New project</a>
                 <a th:href="@{/settings/llm}">LLM settings</a>
                 <a th:href="@{/profile}">Profile</a>
+                <a th:if="${currentUserAdmin}" th:href="@{/admin}">Admin</a>
                 <span class="nav-user" th:text="${currentUserEmail}">user@example.com</span>
                 <form th:action="@{/logout}" method="post" class="inline-form">
                     <button type="submit" class="link-button">Log out</button>
