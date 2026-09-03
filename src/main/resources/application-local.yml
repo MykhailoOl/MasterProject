@@ -1,0 +1,5 @@
+app:
+  dev:
+    quick-admin-login: true
+  encryption:
+    secret: ${APP_ENCRYPTION_SECRET:thesis-local-dev-encryption-key-change-me}

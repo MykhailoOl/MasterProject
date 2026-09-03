@@ -113,10 +113,12 @@ public class ProjectController {
                 answerRequest.setAnswerText(view.suggestedAnswer());
             }
             model.addAttribute("answerQuestionRequest", answerRequest);
+            model.addAttribute("selectedChoice", "");
             return "projects/elicit";
         } catch (IllegalStateException ex) {
             appLog.error("ELICITATION", "Could not start or continue elicitation for project #" + id, ex);
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Elicitation could not continue. Please try again.");
             return "redirect:/projects/" + id;
         }
     }
@@ -133,19 +135,24 @@ public class ProjectController {
         String resolvedAnswer = resolveAnswer(selectedChoice, request.getAnswerText());
         request.setAnswerText(resolvedAnswer);
         if (resolvedAnswer == null || resolvedAnswer.isBlank()) {
-            bindingResult.rejectValue("answerText", "answer.required", "Answer is required");
+            String message = "__custom__".equals(selectedChoice)
+                    ? "Enter a custom title."
+                    : "Answer is required.";
+            bindingResult.rejectValue("answerText", "answer.required", message);
         }
         if (bindingResult.hasErrors()) {
             ElicitationService.ElicitationView view = elicitationService.getOrAdvance(id);
             model.addAttribute("view", view);
+            model.addAttribute("selectedChoice", selectedChoice == null ? "" : selectedChoice);
             return "projects/elicit";
         }
         try {
             elicitationService.submitAnswer(id, questionId, resolvedAnswer);
             return "redirect:/projects/" + id + "/elicit";
-        } catch (IllegalStateException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             appLog.error("ELICITATION", "Could not process an answer for project #" + id, ex);
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Your answer could not be processed. Please try again.");
             return "redirect:/projects/" + id + "/elicit";
         }
     }

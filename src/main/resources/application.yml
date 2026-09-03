@@ -46,6 +46,6 @@ app:
     demo-user-email: user@thesis.local
     demo-user-password: user123
   dev:
-    quick-admin-login: true
+    quick-admin-login: false
   encryption:
-    secret: thesis-local-dev-encryption-key-change-me
+    secret: ${APP_ENCRYPTION_SECRET}

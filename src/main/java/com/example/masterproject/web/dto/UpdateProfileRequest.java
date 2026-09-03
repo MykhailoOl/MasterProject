@@ -17,10 +17,10 @@ public class UpdateProfileRequest {
     @NotBlank(message = "{profile.currentPassword.notBlank}")
     private String currentPassword;
 
-    @Size(min = 6, max = 100, message = "{auth.password.size}")
+    @Size(min = 8, max = 100, message = "{auth.password.size}")
     private String newPassword;
 
-    @Size(min = 6, max = 100, message = "{auth.password.size}")
+    @Size(min = 8, max = 100, message = "{auth.password.size}")
     private String confirmNewPassword;
 
     public String getEmail() {

@@ -32,11 +32,12 @@
         <p class="error" th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}"></p>
 
         <label for="newPassword">New password (optional)</label>
-        <input id="newPassword" type="password" th:field="*{newPassword}" minlength="6" maxlength="100" autocomplete="new-password">
+        <input id="newPassword" type="password" th:field="*{newPassword}" minlength="8" maxlength="100" autocomplete="new-password">
         <p class="error" th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}"></p>
+        <p class="hint">At least 8 characters</p>
 
         <label for="confirmNewPassword">Confirm new password</label>
-        <input id="confirmNewPassword" type="password" th:field="*{confirmNewPassword}" minlength="6" maxlength="100" autocomplete="new-password">
+        <input id="confirmNewPassword" type="password" th:field="*{confirmNewPassword}" minlength="8" maxlength="100" autocomplete="new-password">
         <p class="error" th:if="${#fields.hasErrors('confirmNewPassword')}" th:errors="*{confirmNewPassword}"></p>
 
         <p class="hint">Role: <span th:text="${profileUser.role}">USER</span></p>

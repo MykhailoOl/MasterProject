@@ -11,6 +11,8 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
+    <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+
     <h1 th:text="${view.project.title}">Project</h1>
     <p class="muted">
         Progress:
@@ -49,11 +51,20 @@
             <div th:if="${view.titleChoiceStep}">
                 <p class="muted">Pick a suggested title or write your own.</p>
                 <label class="check-row" th:each="choice : ${view.choices}">
-                    <input type="radio" name="selectedChoice" th:value="${choice}" required>
+                    <input type="radio"
+                           name="selectedChoice"
+                           th:value="${choice}"
+                           th:checked="${selectedChoice == choice}"
+                           required>
                     <span th:text="${choice}">Title option</span>
                 </label>
                 <label class="check-row">
-                    <input type="radio" name="selectedChoice" value="__custom__" id="custom-title-choice">
+                    <input type="radio"
+                           name="selectedChoice"
+                           value="__custom__"
+                           id="custom-title-choice"
+                           th:checked="${selectedChoice == '__custom__'}"
+                           required>
                     <span>Write my own title</span>
                 </label>
                 <label for="answerText">Custom title</label>
@@ -90,6 +101,17 @@
 <script th:inline="javascript">
     const projectId = /*[[${view.project.id}]]*/ 0;
     const simplifyEnabled = /*[[${view.project.simplifyModeEnabled}]]*/ false;
+    const titleChoices = document.querySelectorAll('input[name="selectedChoice"]');
+    const customTitleChoice = document.getElementById('custom-title-choice');
+    const customTitleInput = document.getElementById('answerText');
+
+    if (customTitleChoice && customTitleInput) {
+        const syncCustomTitle = () => {
+            customTitleInput.required = customTitleChoice.checked;
+        };
+        titleChoices.forEach(choice => choice.addEventListener('change', syncCustomTitle));
+        syncCustomTitle();
+    }
 </script>
 <script th:src="@{/js/simplify.js}"></script>
 </body>
