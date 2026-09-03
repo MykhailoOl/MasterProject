@@ -42,7 +42,7 @@
             Question
         </div>
         <p class="hint" th:if="${view.project.simplifyModeEnabled and !view.titleChoiceStep}">
-            Select at least one full sentence, then right-click and choose Simplify.
+            Select text in the question, then right-click and choose Simplify.
         </p>
 
         <form th:action="@{/projects/{id}/elicit/{qid}(id=${view.project.id}, qid=${view.currentQuestion.id})}"
@@ -73,7 +73,27 @@
 
             <div th:unless="${view.titleChoiceStep}">
                 <label for="answerText" th:text="${view.overallIdeaStep} ? 'Overall idea' : 'Your answer'">Your answer</label>
-                <textarea id="answerText" th:field="*{answerText}" rows="5" required maxlength="5000"></textarea>
+                <textarea id="answerText"
+                          th:field="*{answerText}"
+                          rows="5"
+                          required
+                          maxlength="5000"
+                          th:attr="placeholder=${view.answerExample}"></textarea>
+            </div>
+
+            <div th:if="${view.answerExample != null and !view.answerExample.isBlank()}"
+                 class="answer-example"
+                 id="answer-example">
+                <div class="answer-example-header">
+                    <strong>Example answer</strong>
+                    <button type="button"
+                            class="button secondary"
+                            id="use-answer-example"
+                            th:attr="data-example=${view.answerExample}">
+                        Use example
+                    </button>
+                </div>
+                <p th:text="${view.answerExample}">Example</p>
             </div>
 
             <p class="error" th:if="${#fields.hasErrors('answerText')}" th:errors="*{answerText}"></p>
@@ -89,14 +109,14 @@
     <button type="button" id="simplify-action">Simplify</button>
 </div>
 
-<dialog id="simplify-dialog" class="simplify-dialog">
-    <h3>Simplified text</h3>
+<div id="simplify-popup" class="simplify-popup" hidden>
+    <div class="simplify-popup-header">
+        <span>Simplified</span>
+        <button type="button" id="simplify-close" class="simplify-popup-close" aria-label="Close">×</button>
+    </div>
     <p id="simplify-output" class="simplify-output"></p>
     <p id="simplify-error" class="error" hidden></p>
-    <form method="dialog" class="actions">
-        <button class="button" value="close">Close</button>
-    </form>
-</dialog>
+</div>
 
 <script th:inline="javascript">
     const projectId = /*[[${view.project.id}]]*/ 0;
@@ -104,6 +124,7 @@
     const titleChoices = document.querySelectorAll('input[name="selectedChoice"]');
     const customTitleChoice = document.getElementById('custom-title-choice');
     const customTitleInput = document.getElementById('answerText');
+    const useExampleButton = document.getElementById('use-answer-example');
 
     if (customTitleChoice && customTitleInput) {
         const syncCustomTitle = () => {
@@ -111,6 +132,18 @@
         };
         titleChoices.forEach(choice => choice.addEventListener('change', syncCustomTitle));
         syncCustomTitle();
+    }
+
+    if (useExampleButton && customTitleInput) {
+        useExampleButton.addEventListener('click', () => {
+            const example = useExampleButton.getAttribute('data-example') || '';
+            customTitleInput.value = example;
+            if (customTitleChoice) {
+                customTitleChoice.checked = true;
+                customTitleInput.required = true;
+            }
+            customTitleInput.focus();
+        });
     }
 </script>
 <script th:src="@{/js/simplify.js}"></script>

@@ -3,13 +3,15 @@ package com.example.masterproject.model.taxonomy;
 import com.example.masterproject.model.enums.RequirementCategory;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 public final class TaxonomyCatalog {
 
     public record Criterion(
             String id,
             String description,
-            String fallbackQuestion) {
+            String fallbackQuestion,
+            String answerExample) {
     }
 
     public record Definition(
@@ -29,276 +31,325 @@ public final class TaxonomyCatalog {
                     "Goal",
                     "The problem, intended outcome, success signals, and priorities.",
                     true,
-                    2,
+                    5,
                     "Goals",
                     true,
                     List.of(
                             new Criterion(
                                     "problem",
                                     "The specific problem or current difficulty to solve.",
-                                    "What specific problem or current difficulty should this product solve?"),
+                                    "What concrete problem or frustration should the first version remove for people?",
+                                    "Parents waste evenings searching three shops because toy stock is unclear."),
                             new Criterion(
                                     "outcome",
                                     "The outcome or benefit users should achieve.",
-                                    "What outcome should users achieve with this product?"),
+                                    "What better result should people get after using this product?",
+                                    "A parent finds an in-stock toy nearby in under two minutes."),
                             new Criterion(
                                     "success",
                                     "An observable or measurable signal of success.",
-                                    "What observable result would show that the product is successful?"),
+                                    "What visible result would prove the product is working well enough?",
+                                    "At least 70% of searches end with a confirmed in-stock item."),
                             new Criterion(
                                     "priority",
                                     "The most important outcome when trade-offs are necessary.",
-                                    "If trade-offs are necessary, which outcome is most important?"))),
+                                    "If only one outcome can be protected first, which one matters most?",
+                                    "Correct stock information matters more than fancy recommendations."))),
             new Definition(
                     RequirementCategory.USERS_AND_ROLES,
                     "Users and roles",
-                    "User groups, their goals, permissions, and usage context.",
+                    "Customers, staff, managers, and what each group may do.",
                     true,
-                    2,
+                    5,
                     "Users and roles",
                     true,
                     List.of(
                             new Criterion(
-                                    "user_groups",
-                                    "Distinct user or stakeholder groups.",
-                                    "Which distinct groups of people or systems will use this product?"),
+                                    "customers",
+                                    "The main people being served by the product.",
+                                    "Who is this product mainly for as the everyday customer or visitor?",
+                                    "Parents and gift shoppers looking for toys in local stores."),
                             new Criterion(
-                                    "user_goals",
-                                    "The goal each user group needs to accomplish.",
-                                    "What does each user group need to accomplish?"),
+                                    "operators",
+                                    "People who run day-to-day work in the business.",
+                                    "Besides customers, who in the business will use it during a normal workday?",
+                                    "Store clerks who update stock and answer customer questions."),
+                            new Criterion(
+                                    "managers",
+                                    "People who control settings, accounts, or sensitive actions.",
+                                    "Who needs stronger control, such as pricing, inventory overrides, or staff accounts?",
+                                    "The store owner and one store manager."),
                             new Criterion(
                                     "permissions",
-                                    "Responsibilities and access boundaries for each role.",
-                                    "What should each role be allowed or prevented from doing?"),
+                                    "What each group may do or must be blocked from doing.",
+                                    "What should customers, staff, and managers each be allowed or blocked from doing?",
+                                    "Customers browse stock; staff update stock; only managers change prices and add staff."),
                             new Criterion(
                                     "usage_context",
-                                    "Relevant skill, accessibility, frequency, or environment constraints.",
-                                    "In what context will the main users use the product?"))),
+                                    "When, where, and how often each group uses the product.",
+                                    "When and where do the main people usually use this product?",
+                                    "Customers on phones while shopping; staff on a tablet at the counter."))),
             new Definition(
                     RequirementCategory.CORE_FEATURES,
                     "Core features",
                     "Prioritized capabilities, workflows, inputs, outputs, and acceptance behaviour.",
                     true,
-                    4,
+                    5,
                     "Core features",
                     true,
                     List.of(
                             new Criterion(
                                     "capabilities",
                                     "The essential capabilities required in the first usable release.",
-                                    "Which capabilities are essential for the first usable release?"),
+                                    "What must someone be able to do in the first usable version?",
+                                    "Search toys by name, see nearby stock, and reserve one item for pickup."),
                             new Criterion(
                                     "workflow",
                                     "The main user workflow, including its trigger and sequence.",
-                                    "Walk through the main task from its trigger to completion."),
+                                    "Walk through the main task from the moment it starts to the moment it finishes.",
+                                    "Customer searches a toy, picks a store, reserves it, then collects it in store."),
                             new Criterion(
                                     "inputs_outputs",
                                     "Important inputs, outputs, and state changes.",
-                                    "What information enters the main workflow, and what result should it produce?"),
+                                    "What information goes in during that main task, and what result comes out?",
+                                    "Input: toy name and city. Output: matching stores, stock count, and a reservation code."),
                             new Criterion(
                                     "acceptance",
                                     "Observable acceptance behaviour and important exceptions.",
-                                    "What behaviour must be observable for the main workflow to be considered correct?"))),
+                                    "How can someone tell the main task succeeded, and what should happen when it fails?",
+                                    "Success shows a reservation code; if stock runs out, the customer is told immediately."))),
             new Definition(
                     RequirementCategory.PLATFORM,
                     "Platform",
                     "Delivery channel, supported environments, technical constraints, and quality expectations.",
                     true,
-                    2,
+                    5,
                     "Platform and stack",
                     true,
                     List.of(
                             new Criterion(
                                     "delivery_channel",
                                     "Whether the product is web, mobile, desktop, API, embedded, or another channel.",
-                                    "Through which channel should users access the product?"),
+                                    "How should people open and use the product: website, phone app, desktop, or something else?",
+                                    "A mobile-friendly website first; no native app in version one."),
                             new Criterion(
                                     "supported_environments",
                                     "Required devices, operating systems, browsers, or runtime environments.",
-                                    "Which devices, operating systems, browsers, or runtimes must be supported?"),
+                                    "Which phones, computers, or browsers must work from day one?",
+                                    "Current Chrome, Safari, and Edge on phones and laptops."),
                             new Criterion(
                                     "technology_constraints",
                                     "Required or prohibited technologies and compatibility constraints.",
-                                    "Are any technologies required, prohibited, or constrained by an existing environment?"),
+                                    "Are any tools, systems, or technologies required or forbidden by the business?",
+                                    "Must work with the existing store inventory spreadsheet export."),
                             new Criterion(
                                     "quality_constraints",
                                     "Platform-level performance, availability, accessibility, or offline expectations.",
-                                    "Which platform-level quality constraint matters most for this product?"))),
+                                    "Which quality need matters most: speed, offline use, accessibility, or uptime?",
+                                    "Search results should appear in under two seconds on a normal phone connection."))),
             new Definition(
                     RequirementCategory.NON_GOALS,
                     "Non-goals",
                     "Explicit product boundaries, exclusions, deferred work, and assumptions.",
                     false,
-                    1,
+                    5,
                     "Non-goals",
                     true,
                     List.of(
                             new Criterion(
                                     "excluded_capabilities",
                                     "Capabilities explicitly excluded from the first release.",
-                                    "Which plausible capabilities must be explicitly excluded from the first release?"),
+                                    "What related features must stay out of the first version on purpose?",
+                                    "No home delivery and no online payment in version one."),
                             new Criterion(
                                     "system_boundary",
                                     "Where this product's responsibility starts and ends.",
-                                    "Where should this product's responsibility end?"),
+                                    "Where should this product stop, and what stays outside its job?",
+                                    "It shows stock and reservations; in-store checkout stays with the cash register."),
                             new Criterion(
                                     "deferred_work",
                                     "Ideas deliberately deferred to a later release.",
-                                    "Which ideas should be deferred until after the first release?"),
+                                    "Which good ideas should wait until after the first release?",
+                                    "Wish lists and personalized recommendations wait for later."),
                             new Criterion(
                                     "assumptions",
                                     "Important assumptions that prevent accidental scope expansion.",
-                                    "Which assumption about the first release should be made explicit?"))),
+                                    "What assumption about the first release should be written down so nobody expands scope by accident?",
+                                    "Each shop already keeps a daily stock list that can be uploaded."))),
             new Definition(
                     RequirementCategory.DATA_ENTITIES,
                     "Data entities",
                     "Core information, relationships, ownership, and lifecycle rules.",
                     false,
-                    2,
+                    5,
                     "Data model",
                     true,
                     List.of(
                             new Criterion(
                                     "entities_attributes",
                                     "Core entities and the information each must retain.",
-                                    "What core information must the product store?"),
+                                    "What information must the product remember to do its job?",
+                                    "Stores, toys, stock counts, reservations, and staff accounts."),
                             new Criterion(
                                     "relationships",
                                     "Relationships and cardinality between core entities.",
-                                    "How are the main pieces of stored information related?"),
+                                    "How are those pieces of information connected to each other?",
+                                    "One store has many toys; one reservation belongs to one customer and one toy."),
                             new Criterion(
                                     "ownership_access",
                                     "Who owns, creates, reads, and changes the data.",
-                                    "Who owns the stored information, and who may view or change it?"),
+                                    "Who may view or change each important piece of stored information?",
+                                    "Staff update stock for their store; managers can edit any store; customers see only public stock."),
                             new Criterion(
                                     "lifecycle",
                                     "Creation, update, deletion, retention, and audit rules.",
-                                    "What lifecycle or retention rules apply to the stored information?"))),
+                                    "How long should key records be kept, and when may they be changed or removed?",
+                                    "Reservations expire after 24 hours; stock history is kept for 90 days."))),
             new Definition(
                     RequirementCategory.AUTHENTICATION,
                     "Authentication",
                     "Identity, authorization, session recovery, and protection expectations.",
                     false,
-                    2,
+                    5,
                     "Authentication and access",
                     true,
                     List.of(
                             new Criterion(
                                     "identity",
                                     "Account creation and supported sign-in methods.",
-                                    "How should users create an identity and sign in?"),
+                                    "Who needs an account, and how should they sign in?",
+                                    "Customers can browse without an account; staff sign in with email and password."),
                             new Criterion(
                                     "authorization",
                                     "Role and resource-level authorization rules.",
-                                    "Which protected actions or resources require different permissions?"),
+                                    "Which actions need stronger permission than a normal signed-in user?",
+                                    "Only managers can create staff accounts or change prices."),
                             new Criterion(
                                     "session_recovery",
                                     "Session duration, sign-out, credential recovery, and account recovery.",
-                                    "What session and account-recovery behaviour is required?"),
+                                    "How long should people stay signed in, and how do they recover a lost password?",
+                                    "Staff stay signed in for one workday; password reset uses email."),
                             new Criterion(
                                     "security_constraints",
                                     "Relevant privacy, sensitive-data, and stronger-authentication constraints.",
-                                    "Which security or privacy constraint must authentication enforce?"))),
+                                    "What security or privacy rule must sign-in protect?",
+                                    "Customer phone numbers are hidden from other customers and from junior staff."))),
             new Definition(
                     RequirementCategory.INTEGRATIONS,
                     "Integrations",
                     "External systems, exchanged data, contracts, authentication, and failure limits.",
                     false,
-                    2,
+                    5,
                     "Integrations",
                     true,
                     List.of(
                             new Criterion(
                                     "external_systems",
                                     "External services or systems and the purpose of each connection.",
-                                    "Which external system must be connected, and why?"),
+                                    "Which outside system must this product connect to, and why?",
+                                    "Nightly stock files from the existing inventory spreadsheet tool."),
                             new Criterion(
                                     "data_exchange",
                                     "Data direction, payload, trigger, and expected result.",
-                                    "What data should be exchanged with each external system, and when?"),
+                                    "What data moves between systems, and when does that happen?",
+                                    "Each night the store sends toy IDs and stock counts; the product updates availability."),
                             new Criterion(
                                     "contract_security",
                                     "Protocol, API contract, authentication, and secret-handling constraints.",
-                                    "What contract and authentication constraints apply to the integration?"),
+                                    "How should that connection be secured or limited?",
+                                    "Only the store system may upload stock using a private upload key."),
                             new Criterion(
                                     "failure_limits",
                                     "Timeout, retry, rate-limit, availability, and degraded-mode behaviour.",
-                                    "How should the product behave when an integration is slow or unavailable?"))),
+                                    "What should happen if that outside system is late or unavailable?",
+                                    "Keep yesterday's stock visible and mark it as last updated overnight."))),
             new Definition(
                     RequirementCategory.ERROR_HANDLING,
                     "Error handling",
                     "Failure scenarios, user communication, recovery, and operational visibility.",
                     false,
-                    2,
+                    5,
                     "Error handling",
                     true,
                     List.of(
                             new Criterion(
                                     "failure_scenarios",
                                     "Important invalid-input, dependency, concurrency, and system failure scenarios.",
-                                    "Which failure scenario would cause the most harm if it were handled badly?"),
+                                    "Which failure would hurt people most if the product handled it badly?",
+                                    "Two customers reserve the last toy at the same time."),
                             new Criterion(
                                     "user_response",
                                     "Safe, useful user-facing behaviour and messages.",
-                                    "What should the user see or be able to do when that failure occurs?"),
+                                    "What should the person see or be able to do when that failure happens?",
+                                    "Show that the toy just sold out and offer the next nearest store."),
                             new Criterion(
                                     "recovery",
                                     "Retry, rollback, idempotency, fallback, or manual recovery behaviour.",
-                                    "How should the product recover from the most important failure?"),
+                                    "How should the product recover so data and people stay safe?",
+                                    "Only one reservation is kept; the second attempt is rejected cleanly."),
                             new Criterion(
                                     "observability",
                                     "Logging, monitoring, correlation, and support information.",
-                                    "What information must be recorded so important failures can be diagnosed?"))),
+                                    "What should be recorded so staff can understand and fix important failures?",
+                                    "Log the toy, store, and both reservation attempts with timestamps."))),
             new Definition(
                     RequirementCategory.TESTING,
                     "Testing",
                     "Acceptance criteria, critical journeys, test scope, and measurable quality thresholds.",
                     false,
-                    2,
+                    5,
                     "Testing expectations",
                     true,
                     List.of(
                             new Criterion(
                                     "acceptance_criteria",
                                     "Measurable criteria that determine whether the product is acceptable.",
-                                    "Which measurable condition must be satisfied before the product is accepted?"),
+                                    "What measurable check must pass before you accept the first version?",
+                                    "A customer can reserve an in-stock toy and staff can see that reservation."),
                             new Criterion(
                                     "critical_journeys",
                                     "Critical workflows and failure paths that must be verified.",
-                                    "Which user journey or failure path must never be released without testing?"),
+                                    "Which journey or failure case must be tested every time before release?",
+                                    "Search, reserve, and the sold-out conflict path."),
                             new Criterion(
                                     "test_scope",
                                     "Required test levels, environments, data, or compatibility coverage.",
-                                    "What test scope or environment is required before release?"),
+                                    "What kinds of tests or devices are required before release?",
+                                    "Manual checks on phone and laptop using sample stock from two stores."),
                             new Criterion(
                                     "quality_thresholds",
                                     "Required performance, reliability, security, or accessibility thresholds.",
-                                    "Which quality threshold must be measured before release?"))),
+                                    "Which quality number must be measured before release?",
+                                    "Search must return results in under two seconds on a mid-range phone."))),
             new Definition(
                     RequirementCategory.DEPLOYMENT,
                     "Deployment",
                     "Target environments, release process, configuration, operations, and rollback.",
                     false,
-                    2,
+                    5,
                     "Deployment",
                     true,
                     List.of(
                             new Criterion(
                                     "environments",
                                     "Hosting target and required development, test, staging, or production environments.",
-                                    "Where will the product run, and which environments are required?"),
+                                    "Where will the live product run, and do you need a separate test copy?",
+                                    "One test site and one live site hosted on a standard cloud host."),
                             new Criterion(
                                     "release_process",
                                     "Build, approval, migration, and release automation expectations.",
-                                    "How should a new version move from source code into production?"),
+                                    "How should a new version move from finished work into the live site?",
+                                    "Deploy to test first, then promote to live after a short checklist."),
                             new Criterion(
                                     "configuration",
                                     "Environment configuration, secrets, and infrastructure dependencies.",
-                                    "How should environment-specific configuration and secrets be supplied?"),
+                                    "How should secrets and environment settings be supplied safely?",
+                                    "Database and upload keys stay in host environment settings, not in code."),
                             new Criterion(
                                     "operations",
                                     "Monitoring, backup, scaling, incident response, and rollback expectations.",
-                                    "What operational or rollback capability is required after deployment?"))),
+                                    "What must be ready after go-live for backup, alerts, or undo?",
+                                    "Daily database backups and a one-step rollback to the previous release."))),
             new Definition(
                     RequirementCategory.PROJECT_TITLE,
                     "Project title",
@@ -351,6 +402,15 @@ public final class TaxonomyCatalog {
                 .filter(definition -> definition.category() == category)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown category: " + category));
+    }
+
+    public static Optional<Criterion> criterion(RequirementCategory category, String criterionId) {
+        if (criterionId == null || criterionId.isBlank()) {
+            return Optional.empty();
+        }
+        return require(category).criteria().stream()
+                .filter(criterion -> criterion.id().equals(criterionId))
+                .findFirst();
     }
 
     public static boolean isKnown(RequirementCategory category) {

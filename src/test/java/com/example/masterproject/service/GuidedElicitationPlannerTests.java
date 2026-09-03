@@ -80,6 +80,20 @@ class GuidedElicitationPlannerTests {
         assertThat(selected.id()).isEqualTo("outcome");
     }
 
+    @Test
+    void usersAndRolesPreferUnaskedCustomerStaffAndManagerCriteria() {
+        TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.USERS_AND_ROLES);
+
+        TaxonomyCatalog.Criterion selected = planner.nextCriterion(
+                definition,
+                """
+                {"customers":"COVERED","operators":"MISSING","managers":"MISSING","permissions":"MISSING","usage_context":"MISSING"}
+                """,
+                Set.of());
+
+        assertThat(selected.id()).isEqualTo("operators");
+    }
+
     private ProjectCategory category(
             RequirementCategory category,
             boolean mandatory,

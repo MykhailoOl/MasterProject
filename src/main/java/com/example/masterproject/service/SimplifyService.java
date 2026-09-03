@@ -32,15 +32,16 @@ public class SimplifyService {
 
         LlmRuntimeSettings settings = LlmRuntimeSettings.forProvider(project.getLlmProvider());
         String systemPrompt = """
-                You rewrite text so a complete beginner can understand it.
-                Use very simple everyday words.
-                Keep the same meaning.
-                Do not add new facts.
+                You simplify English the way Google Translate simplifies language for a reader.
+                Keep the same language.
+                Preserve the original meaning exactly.
+                Use shorter everyday words and shorter sentences.
+                Do not translate into another language.
+                Do not add explanations, labels, quotes, or new facts.
                 Do not ask questions back.
-                Output only the rewritten text.
-                Make it so simple that nobody needs a second explanation.
+                Output only the simplified text.
                 """;
-        String userPrompt = "Rewrite this in the simplest possible language:\n\n" + selectedText.trim();
+        String userPrompt = "Simplify this text:\n\n" + selectedText.trim();
 
         String simplified = llmCredentialService.complete(
                 project.getLlmProvider(),

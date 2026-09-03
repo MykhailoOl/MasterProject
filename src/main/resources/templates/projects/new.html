@@ -10,7 +10,7 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
     <h1>New project</h1>
-    <p class="muted">Describe the idea, choose the LLM and categories. The idea is analyzed first, then each question targets the most important missing requirement. Title and overall idea are finalized at the end.</p>
+    <p class="muted">Describe the idea, choose the LLM and categories. The idea is analyzed first, then each question targets the most important missing requirement. Categories stop early when complete, with a safety cap of 5 questions each. Title and overall idea are finalized at the end.</p>
 
     <div th:if="${#lists.isEmpty(providers) or !hasConfiguredProvider}" class="flash error-flash">
         Add and verify an LLM API key in <a th:href="@{/settings/llm}">LLM settings</a> first.

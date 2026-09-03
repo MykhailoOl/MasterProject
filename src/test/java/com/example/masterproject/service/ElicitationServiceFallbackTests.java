@@ -97,8 +97,10 @@ class ElicitationServiceFallbackTests {
         ElicitationService.ElicitationView view = service.getOrAdvance(1L);
 
         assertThat(view.currentQuestion().getQuestionText())
-                .isEqualTo("What specific problem or current difficulty should this product solve?");
+                .isEqualTo("What concrete problem or frustration should the first version remove for people?");
         assertThat(view.currentQuestion().getFocusCriterion()).isEqualTo("problem");
+        assertThat(view.answerExample())
+                .isEqualTo("Parents waste evenings searching three shops because toy stock is unclear.");
     }
 
     @Test
