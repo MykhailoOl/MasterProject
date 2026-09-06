@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin project')}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <section class="project-header">
+        <p class="muted"><a th:href="@{/admin}">← Back to admin</a></p>
+        <h1 th:text="${projectDetail.title}">Project</h1>
+        <div class="meta">
+            <span class="badge" th:text="${projectDetail.status}">IN_PROGRESS</span>
+            <span class="badge" th:if="${projectDetail.llmProvider != null}" th:text="${projectDetail.llmProvider}">OPENAI</span>
+            <a th:href="@{/admin/users/{id}(id=${projectDetail.ownerId})}"
+               th:text="${projectDetail.ownerUsername}">owner</a>
+            <span class="muted" th:text="${projectDetail.ownerEmail}">email</span>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <h2>Overview</h2>
+        <p><strong>Created:</strong> <span th:text="${projectDetail.createdAt}">date</span></p>
+        <p><strong>Updated:</strong> <span th:text="${projectDetail.updatedAt}">date</span></p>
+        <p><strong>Easier reading:</strong>
+            <span th:text="${projectDetail.simplifyModeEnabled} ? 'On' : 'Off'">On</span></p>
+        <p><strong>Sessions:</strong> <span th:text="${projectDetail.sessionCount}">0</span></p>
+        <p><strong>Questions:</strong> <span th:text="${projectDetail.questionCount}">0</span></p>
+        <p><strong>Answers:</strong> <span th:text="${projectDetail.answerCount}">0</span></p>
+    </section>
+
+    <section class="form-card">
+        <h2>Starting idea</h2>
+        <p th:text="${projectDetail.initialIdea}">Idea</p>
+    </section>
+
+    <section class="admin-section">
+        <h2>Captured requirements</h2>
+        <div class="slot-grid">
+            <article class="slot-card" th:each="slot : ${projectDetail.slots}">
+                <h3 th:text="${slot.category}">Topic</h3>
+                <p th:if="${slot.value != null}" th:text="${slot.value}">Value</p>
+                <p th:if="${slot.value == null}" class="muted">Not captured yet</p>
+                <div class="progress">
+                    <div class="progress-bar" th:style="'width:' + ${slot.completeness * 100} + '%'"></div>
+                </div>
+                <p class="muted" th:text="${slot.updatedAt}">date</p>
+            </article>
+        </div>
+    </section>
+</main>
+</body>
+</html>

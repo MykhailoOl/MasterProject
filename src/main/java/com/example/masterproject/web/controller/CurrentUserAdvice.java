@@ -18,6 +18,18 @@ public class CurrentUserAdvice {
         return userContextService.getCurrentUserEmailOrNull();
     }
 
+    @ModelAttribute("currentUsername")
+    public String currentUsername() {
+        if (userContextService.getCurrentUserEmailOrNull() == null) {
+            return null;
+        }
+        try {
+            return userContextService.getCurrentUser().getUsername();
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
     @ModelAttribute("currentUserAdmin")
     public boolean currentUserAdmin() {
         return userContextService.isCurrentUserAdmin();

@@ -3,6 +3,7 @@ package com.example.masterproject.web.controller;
 import com.example.masterproject.service.AuthService;
 import com.example.masterproject.service.EmailAlreadyUsedException;
 import com.example.masterproject.service.UserContextService;
+import com.example.masterproject.service.UsernameAlreadyUsedException;
 import com.example.masterproject.web.dto.RegisterRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,6 +65,9 @@ public class AuthController {
         if (!bindingResult.hasFieldErrors("email") && authService.emailExists(request.getEmail())) {
             bindingResult.rejectValue("email", "auth.email.taken", "Email is already registered");
         }
+        if (!bindingResult.hasFieldErrors("username") && authService.usernameExists(request.getUsername())) {
+            bindingResult.rejectValue("username", "auth.username.taken", "Username is already taken");
+        }
         if (bindingResult.hasErrors()) {
             return "auth/register";
         }
@@ -71,6 +75,9 @@ public class AuthController {
             authService.register(request);
         } catch (EmailAlreadyUsedException ex) {
             bindingResult.rejectValue("email", "auth.email.taken", "Email is already registered");
+            return "auth/register";
+        } catch (UsernameAlreadyUsedException ex) {
+            bindingResult.rejectValue("username", "auth.username.taken", "Username is already taken");
             return "auth/register";
         }
         redirectAttributes.addFlashAttribute("message", "Account created. Please log in.");

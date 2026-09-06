@@ -6,7 +6,7 @@
 <main class="container">
     <section class="project-header">
         <h1>Admin data</h1>
-        <p class="muted">Application-wide accounts, projects, elicitation data, and generated exports.</p>
+        <p class="muted">Open a user or project for full details. Export study data when needed.</p>
         <div class="actions">
             <a class="button" th:href="@{/admin/exports/study-data.json}">Download JSON</a>
             <a class="button secondary" th:href="@{/admin/exports/study-data-csv.zip}">
@@ -57,8 +57,8 @@
                 <thead>
                 <tr>
                     <th>ID</th>
+                    <th>Username</th>
                     <th>Email</th>
-                    <th>Display name</th>
                     <th>Role</th>
                     <th>Projects</th>
                     <th>Created</th>
@@ -67,8 +67,10 @@
                 <tbody>
                 <tr th:each="user : ${dashboard.users}">
                     <td th:text="${user.id}">1</td>
+                    <td>
+                        <a th:href="@{/admin/users/{id}(id=${user.id})}" th:text="${user.username}">username</a>
+                    </td>
                     <td th:text="${user.email}">user@example.com</td>
-                    <td th:text="${user.displayName ?: '—'}">Name</td>
                     <td><span class="badge" th:text="${user.role}">USER</span></td>
                     <td th:text="${user.projectCount}">0</td>
                     <td th:text="${user.createdAt}">date</td>
@@ -97,10 +99,13 @@
                 <tr th:each="project : ${dashboard.projects}">
                     <td th:text="${project.id}">1</td>
                     <td>
-                        <span th:text="${project.ownerEmail}">user@example.com</span>
-                        <small class="muted" th:text="${'#' + project.ownerId}">#1</small>
+                        <a th:href="@{/admin/users/{id}(id=${project.ownerId})}"
+                           th:text="${project.ownerUsername}">username</a>
+                        <small class="muted" th:text="${project.ownerEmail}">user@example.com</small>
                     </td>
-                    <td th:text="${project.title}">Project</td>
+                    <td>
+                        <a th:href="@{/admin/projects/{id}(id=${project.id})}" th:text="${project.title}">Project</a>
+                    </td>
                     <td><span class="badge" th:text="${project.status}">IN_PROGRESS</span></td>
                     <td th:text="${project.llmProvider ?: '—'}">OPENAI</td>
                     <td th:text="${project.createdAt}">date</td>

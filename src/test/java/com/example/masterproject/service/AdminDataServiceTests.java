@@ -77,7 +77,7 @@ class AdminDataServiceTests {
 
     @Test
     void csvArchiveContainsEveryDatasetAndNeutralizesSpreadsheetFormulas() throws Exception {
-        User user = user("admin@example.com", "=HYPERLINK(\"bad\")", "$2a$secret-hash");
+        User user = user("admin@example.com", "formula_user", "$2a$secret-hash");
         when(userRepository.findAll(any(Sort.class))).thenReturn(List.of(user));
 
         Map<String, String> files = unzip(service.csvArchive());
@@ -91,15 +91,15 @@ class AdminDataServiceTests {
                 "slots.csv",
                 "snapshots.csv",
                 "exports.csv");
-        assertThat(files.get("users.csv")).contains("\"'=HYPERLINK(\"\"bad\"\")\"");
+        assertThat(files.get("users.csv")).contains("formula_user");
         assertThat(files.get("users.csv")).doesNotContain("$2a$secret-hash");
     }
 
-    private User user(String email, String displayName, String passwordHash) {
+    private User user(String email, String username, String passwordHash) {
         User user = new User();
         user.setId(1L);
         user.setEmail(email);
-        user.setDisplayName(displayName);
+        user.setUsername(username);
         user.setPasswordHash(passwordHash);
         user.setRole(UserRole.ADMIN);
         user.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));

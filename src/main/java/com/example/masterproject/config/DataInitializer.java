@@ -50,6 +50,7 @@ public class DataInitializer implements ApplicationRunner {
         }
         User user = new User();
         user.setEmail(email);
+        user.setUsername(role == UserRole.ADMIN ? "admin" : "demouser");
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRole(role);
         userRepository.save(user);

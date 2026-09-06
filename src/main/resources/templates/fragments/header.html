@@ -9,9 +9,8 @@
                 <a th:href="@{/projects}">Projects</a>
                 <a th:href="@{/projects/new}">New project</a>
                 <a th:href="@{/settings/llm}">AI helpers</a>
-                <a th:href="@{/profile}">Profile</a>
                 <a th:if="${currentUserAdmin}" th:href="@{/admin}">Admin</a>
-                <span class="nav-user" th:text="${currentUserEmail}">user@example.com</span>
+                <a class="nav-user" th:href="@{/profile}" th:text="${currentUsername}">username</a>
                 <form th:action="@{/logout}" method="post" class="inline-form">
                     <button type="submit" class="link-button">Log out</button>
                 </form>

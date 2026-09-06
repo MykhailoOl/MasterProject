@@ -51,19 +51,21 @@
             <legend>Optional topics</legend>
             <p class="muted">Turn on only what matters for your idea. Skipped topics stay out of the final plan.</p>
             <label class="check-row topic-option" th:each="item : ${optionalCategories}">
-                <input type="checkbox"
-                       th:field="*{optionalCategories}"
-                       th:value="${item.category}">
-                <span>
+                <span class="check-copy">
                     <strong th:text="${item.displayName}">How you will check it</strong>
                     <span th:text="${item.description}">desc</span>
                 </span>
+                <input type="checkbox"
+                       th:field="*{optionalCategories}"
+                       th:value="${item.category}">
+                <span class="check-mark" aria-hidden="true"></span>
             </label>
         </fieldset>
 
         <label class="check-row">
+            <span class="check-copy">Make questions easier to read (right-click a sentence to simplify it)</span>
             <input type="checkbox" th:field="*{simplifyModeEnabled}">
-            <span>Make questions easier to read (right-click a sentence to simplify it)</span>
+            <span class="check-mark" aria-hidden="true"></span>
         </label>
 
         <div class="actions">

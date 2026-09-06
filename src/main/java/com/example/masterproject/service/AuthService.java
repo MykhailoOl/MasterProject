@@ -27,17 +27,26 @@ public class AuthService {
         return userRepository.findByEmail(email).isPresent();
     }
 
+    @Transactional(readOnly = true)
+    public boolean usernameExists(String username) {
+        return userRepository.existsByUsernameIgnoreCase(username);
+    }
+
     @Transactional
     public User register(RegisterRequest request) {
         if (emailExists(request.getEmail())) {
             throw new EmailAlreadyUsedException(request.getEmail());
         }
+        if (usernameExists(request.getUsername())) {
+            throw new UsernameAlreadyUsedException(request.getUsername());
+        }
         User user = new User();
         user.setEmail(request.getEmail());
+        user.setUsername(request.getUsername());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setRole(UserRole.USER);
         User saved = userRepository.save(user);
-        appLog.info("AUTH", "New account registered: " + saved.getEmail() + ".");
+        appLog.info("AUTH", "New account registered: " + saved.getUsername() + ".");
         return saved;
     }
 }

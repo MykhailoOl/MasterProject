@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
@@ -29,9 +30,11 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Size(max = 120)
-    @Column(name = "display_name")
-    private String displayName;
+    @NotBlank
+    @Size(min = 3, max = 24)
+    @Pattern(regexp = "^[A-Za-z][A-Za-z0-9_]{2,23}$")
+    @Column(nullable = false, length = 24)
+    private String username;
 
     @NotBlank
     @Size(max = 255)
@@ -63,12 +66,12 @@ public class User {
         this.email = email;
     }
 
-    public String getDisplayName() {
-        return displayName;
+    public String getUsername() {
+        return username;
     }
 
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getPasswordHash() {

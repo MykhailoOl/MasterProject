@@ -6,6 +6,10 @@ import com.example.masterproject.model.enums.LlmProvider;
 import com.example.masterproject.service.LlmCredentialService;
 import com.example.masterproject.web.dto.SaveLlmCredentialRequest;
 import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -62,5 +67,26 @@ public class LlmSettingsController {
             redirectAttributes.addFlashAttribute("errorMessage", "The saved API key could not be checked.");
         }
         return "redirect:/settings/llm";
+    }
+
+    @PostMapping(value = "/verify-live", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> verifyLive(@RequestParam LlmProvider provider) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        try {
+            LlmHealthResult result = llmCredentialService.verifyStored(provider);
+            body.put("ok", result.ok());
+            body.put("message", result.message());
+            body.put("lastVerifiedLabel", llmCredentialService.lastVerifiedLabel(provider));
+            body.put("statusLabel", result.ok() ? "Ready" : "Check failed");
+            return ResponseEntity.ok(body);
+        } catch (Exception ex) {
+            appLog.error("LLM", "Live key check failed for " + provider, ex);
+            body.put("ok", false);
+            body.put("message", "The saved API key could not be checked.");
+            body.put("lastVerifiedLabel", null);
+            body.put("statusLabel", "Check failed");
+            return ResponseEntity.ok(body);
+        }
     }
 }

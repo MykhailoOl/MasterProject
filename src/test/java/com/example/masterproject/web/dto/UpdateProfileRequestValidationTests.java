@@ -14,7 +14,7 @@ class UpdateProfileRequestValidationTests {
     void newPasswordRequiresAtLeastEightCharacters() {
         UpdateProfileRequest request = new UpdateProfileRequest();
         request.setEmail("user@example.com");
-        request.setDisplayName("User");
+        request.setUsername("demo_user");
         request.setCurrentPassword("current-password");
         request.setNewPassword("1234567");
         request.setConfirmNewPassword("1234567");
@@ -28,11 +28,23 @@ class UpdateProfileRequestValidationTests {
     void eightCharacterPasswordIsAccepted() {
         UpdateProfileRequest request = new UpdateProfileRequest();
         request.setEmail("user@example.com");
-        request.setDisplayName("User");
+        request.setUsername("demo_user");
         request.setCurrentPassword("current-password");
         request.setNewPassword("12345678");
         request.setConfirmNewPassword("12345678");
 
         assertThat(validator.validate(request)).isEmpty();
+    }
+
+    @Test
+    void shortUsernameIsRejected() {
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setEmail("user@example.com");
+        request.setUsername("ab");
+        request.setCurrentPassword("current-password");
+
+        assertThat(validator.validate(request))
+                .extracting(violation -> violation.getPropertyPath().toString())
+                .contains("username");
     }
 }

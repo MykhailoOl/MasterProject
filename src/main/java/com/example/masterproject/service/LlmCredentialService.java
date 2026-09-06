@@ -98,10 +98,31 @@ public class LlmCredentialService {
         return new LlmHealthResult(true, message);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LlmHealthResult verifyStored(LlmProvider provider) {
-        String apiKey = resolveApiKey(provider);
-        return llmClientRegistry.require(provider).checkHealth(apiKey);
+        User user = userContextService.getCurrentUser();
+        UserLlmCredential credential = credentialRepository
+                .findByUserAndProvider(user, provider)
+                .orElseThrow(() -> new IllegalStateException("No API key configured for " + provider));
+        String apiKey = encryptionService.decrypt(credential.getApiKeyEnc());
+        LlmHealthResult health = llmClientRegistry.require(provider).checkHealth(apiKey);
+        if (health.ok()) {
+            credential.setLastVerifiedAt(Instant.now());
+            credential.setUpdatedAt(Instant.now());
+            credentialRepository.save(credential);
+        }
+        return health;
+    }
+
+    @Transactional(readOnly = true)
+    public String lastVerifiedLabel(LlmProvider provider) {
+        User user = userContextService.getCurrentUser();
+        return credentialRepository
+                .findByUserAndProvider(user, provider)
+                .map(UserLlmCredential::getLastVerifiedAt)
+                .filter(value -> value != null)
+                .map(VERIFIED_FORMAT::format)
+                .orElse(null);
     }
 
     @Transactional(readOnly = true)

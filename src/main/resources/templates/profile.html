@@ -5,7 +5,7 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
     <h1>Profile</h1>
-    <p class="muted">Update your basic account details.</p>
+    <p class="muted">Update your username, email, or password.</p>
 
     <div th:if="${message}" class="flash" th:text="${message}"></div>
 
@@ -14,13 +14,14 @@
             <p th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
         </div>
 
-        <label for="email">Email</label>
-        <input id="email" type="email" th:field="*{email}" required maxlength="255" autocomplete="username">
-        <p class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p>
+        <label for="username">Username</label>
+        <input id="username" type="text" th:field="*{username}" required minlength="3" maxlength="24" autocomplete="username">
+        <p class="error" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></p>
+        <p class="hint">3–24 characters. Start with a letter. Letters, numbers, and underscores only. Must be unique.</p>
 
-        <label for="displayName">Display name</label>
-        <input id="displayName" type="text" th:field="*{displayName}" maxlength="120" autocomplete="nickname">
-        <p class="error" th:if="${#fields.hasErrors('displayName')}" th:errors="*{displayName}"></p>
+        <label for="email">Email</label>
+        <input id="email" type="email" th:field="*{email}" required maxlength="255" autocomplete="email">
+        <p class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p>
 
         <label for="currentPassword">Current password</label>
         <input id="currentPassword" type="password" th:field="*{currentPassword}" required autocomplete="current-password">
@@ -34,8 +35,6 @@
         <label for="confirmNewPassword">Confirm new password</label>
         <input id="confirmNewPassword" type="password" th:field="*{confirmNewPassword}" minlength="8" maxlength="100" autocomplete="new-password">
         <p class="error" th:if="${#fields.hasErrors('confirmNewPassword')}" th:errors="*{confirmNewPassword}"></p>
-
-        <p class="hint">Role: <span th:text="${profileUser.role}">USER</span></p>
 
         <div class="actions">
             <button class="button" type="submit">Save profile</button>

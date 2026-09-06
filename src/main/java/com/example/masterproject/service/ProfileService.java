@@ -45,6 +45,12 @@ public class ProfileService {
             throw new EmailAlreadyUsedException(newEmail);
         }
 
+        String newUsername = request.getUsername();
+        if (!newUsername.equalsIgnoreCase(user.getUsername())
+                && userRepository.existsByUsernameIgnoreCase(newUsername)) {
+            throw new UsernameAlreadyUsedException(newUsername);
+        }
+
         boolean changingPassword = request.getNewPassword() != null && !request.getNewPassword().isBlank();
         if (changingPassword) {
             if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
@@ -54,14 +60,11 @@ public class ProfileService {
         }
 
         user.setEmail(newEmail);
-        user.setDisplayName(
-                request.getDisplayName() == null || request.getDisplayName().isBlank()
-                        ? null
-                        : request.getDisplayName());
+        user.setUsername(newUsername);
         User saved = userRepository.save(user);
         appLog.info(
                 "PROFILE",
-                "User " + saved.getEmail() + " updated profile"
+                "User " + saved.getUsername() + " updated profile"
                         + (changingPassword ? " and changed password" : "") + ".");
         return saved;
     }

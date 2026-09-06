@@ -4,6 +4,7 @@ import com.example.masterproject.model.entity.User;
 import com.example.masterproject.service.EmailAlreadyUsedException;
 import com.example.masterproject.service.InvalidProfileUpdateException;
 import com.example.masterproject.service.ProfileService;
+import com.example.masterproject.service.UsernameAlreadyUsedException;
 import com.example.masterproject.web.dto.UpdateProfileRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -47,7 +48,7 @@ public class ProfileController {
             User user = profileService.getCurrentProfile();
             UpdateProfileRequest request = new UpdateProfileRequest();
             request.setEmail(user.getEmail());
-            request.setDisplayName(user.getDisplayName());
+            request.setUsername(user.getUsername());
             model.addAttribute("updateProfileRequest", request);
         }
         model.addAttribute("profileUser", profileService.getCurrentProfile());
@@ -73,6 +74,10 @@ public class ProfileController {
             return "redirect:/profile";
         } catch (EmailAlreadyUsedException ex) {
             bindingResult.rejectValue("email", "auth.email.taken", "Email is already registered");
+            model.addAttribute("profileUser", profileService.getCurrentProfile());
+            return "profile";
+        } catch (UsernameAlreadyUsedException ex) {
+            bindingResult.rejectValue("username", "auth.username.taken", "Username is already taken");
             model.addAttribute("profileUser", profileService.getCurrentProfile());
             return "profile";
         } catch (InvalidProfileUpdateException ex) {

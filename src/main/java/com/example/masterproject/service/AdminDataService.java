@@ -1,6 +1,7 @@
 package com.example.masterproject.service;
 
 import com.example.masterproject.model.entity.Project;
+import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
 import com.example.masterproject.repository.AnswerRepository;
 import com.example.masterproject.repository.CompletenessSnapshotRepository;
 import com.example.masterproject.repository.ElicitationSessionRepository;
@@ -29,7 +30,7 @@ public class AdminDataService {
     public record AdminUserRow(
             Long id,
             String email,
-            String displayName,
+            String username,
             String role,
             Instant createdAt,
             long projectCount) {
@@ -39,6 +40,7 @@ public class AdminDataService {
             Long id,
             Long ownerId,
             String ownerEmail,
+            String ownerUsername,
             String title,
             String status,
             String llmProvider,
@@ -60,7 +62,7 @@ public class AdminDataService {
     public record UserExportRow(
             Long id,
             String email,
-            String displayName,
+            String username,
             String role,
             Instant createdAt) {
     }
@@ -193,7 +195,7 @@ public class AdminDataService {
                 .map(user -> new AdminUserRow(
                         user.getId(),
                         user.getEmail(),
-                        user.getDisplayName(),
+                        user.getUsername(),
                         user.getRole().name(),
                         user.getCreatedAt(),
                         projectCounts.getOrDefault(user.getId(), 0L)))
@@ -203,6 +205,7 @@ public class AdminDataService {
                         project.getId(),
                         project.getOwner().getId(),
                         project.getOwner().getEmail(),
+                        project.getOwner().getUsername(),
                         project.getTitle(),
                         project.getStatus().name(),
                         project.getLlmProvider() == null ? null : project.getLlmProvider().name(),
@@ -218,6 +221,108 @@ public class AdminDataService {
                 slotRepository.count(),
                 snapshotRepository.count(),
                 artifactRepository.count());
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserDetail userDetail(Long userId) {
+        userContextService.requireAdmin();
+        var user = userRepository
+                .findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        List<AdminProjectRow> projects = projectRepository.findByOwnerOrderByUpdatedAtDesc(user).stream()
+                .map(project -> new AdminProjectRow(
+                        project.getId(),
+                        project.getOwner().getId(),
+                        project.getOwner().getEmail(),
+                        project.getOwner().getUsername(),
+                        project.getTitle(),
+                        project.getStatus().name(),
+                        project.getLlmProvider() == null ? null : project.getLlmProvider().name(),
+                        project.getCreatedAt(),
+                        project.getUpdatedAt()))
+                .toList();
+        return new AdminUserDetail(
+                user.getId(),
+                user.getEmail(),
+                user.getUsername(),
+                user.getRole().name(),
+                user.getCreatedAt(),
+                projects);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminProjectDetail projectDetail(Long projectId) {
+        userContextService.requireAdmin();
+        Project project = projectRepository
+                .findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        List<AdminSlotRow> slots = slotRepository.findByProjectOrderByCategoryAsc(project).stream()
+                .map(slot -> new AdminSlotRow(
+                        TaxonomyCatalog.require(slot.getCategory()).displayName(),
+                        slot.getValue(),
+                        slot.getCompleteness(),
+                        slot.getSource().name(),
+                        slot.getUpdatedAt()))
+                .toList();
+        var sessions = sessionRepository.findByProjectOrderByStartedAtDesc(project);
+        long questionCount = sessions.stream()
+                .mapToLong(session -> questionRepository.countBySession(session))
+                .sum();
+        long answerCount = sessions.stream()
+                .flatMap(session -> questionRepository.findBySessionOrderByQuestionOrderAsc(session).stream())
+                .filter(question -> answerRepository.existsByQuestion(question))
+                .count();
+        return new AdminProjectDetail(
+                project.getId(),
+                project.getTitle(),
+                project.getInitialIdea(),
+                project.getStatus().name(),
+                project.getLlmProvider() == null ? null : project.getLlmProvider().name(),
+                project.isSimplifyModeEnabled(),
+                project.getCreatedAt(),
+                project.getUpdatedAt(),
+                project.getOwner().getId(),
+                project.getOwner().getEmail(),
+                project.getOwner().getUsername(),
+                sessions.size(),
+                questionCount,
+                answerCount,
+                slots);
+    }
+
+    public record AdminUserDetail(
+            Long id,
+            String email,
+            String username,
+            String role,
+            Instant createdAt,
+            List<AdminProjectRow> projects) {
+    }
+
+    public record AdminSlotRow(
+            String category,
+            String value,
+            double completeness,
+            String source,
+            Instant updatedAt) {
+    }
+
+    public record AdminProjectDetail(
+            Long id,
+            String title,
+            String initialIdea,
+            String status,
+            String llmProvider,
+            boolean simplifyModeEnabled,
+            Instant createdAt,
+            Instant updatedAt,
+            Long ownerId,
+            String ownerEmail,
+            String ownerUsername,
+            int sessionCount,
+            long questionCount,
+            long answerCount,
+            List<AdminSlotRow> slots) {
     }
 
     @Transactional(readOnly = true)
@@ -237,12 +342,12 @@ public class AdminDataService {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
                 ZipOutputStream zip = new ZipOutputStream(output)) {
             addCsv(zip, "users.csv",
-                    List.of("id", "email", "display_name", "role", "created_at"),
+                    List.of("id", "email", "username", "role", "created_at"),
                     data.users().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.email(),
-                                    nullable(row.displayName()),
+                                    row.username(),
                                     row.role(),
                                     row.createdAt()))
                             .toList());
@@ -346,7 +451,7 @@ public class AdminDataService {
                 .map(user -> new UserExportRow(
                         user.getId(),
                         user.getEmail(),
-                        user.getDisplayName(),
+                        user.getUsername(),
                         user.getRole().name(),
                         user.getCreatedAt()))
                 .toList();

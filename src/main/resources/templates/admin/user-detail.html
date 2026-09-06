@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin user')}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container">
+    <section class="project-header">
+        <p class="muted"><a th:href="@{/admin}">← Back to admin</a></p>
+        <h1 th:text="${userDetail.username}">username</h1>
+        <div class="meta">
+            <span class="badge" th:text="${userDetail.role}">USER</span>
+            <span class="muted" th:text="${userDetail.email}">email</span>
+            <span class="muted" th:text="'Joined ' + ${userDetail.createdAt}">Joined</span>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <h2>Account</h2>
+        <p><strong>ID:</strong> <span th:text="${userDetail.id}">1</span></p>
+        <p><strong>Username:</strong> <span th:text="${userDetail.username}">username</span></p>
+        <p><strong>Email:</strong> <span th:text="${userDetail.email}">email</span></p>
+        <p><strong>Role:</strong> <span th:text="${userDetail.role}">USER</span></p>
+        <p><strong>Created:</strong> <span th:text="${userDetail.createdAt}">date</span></p>
+    </section>
+
+    <section class="admin-section">
+        <h2>Projects</h2>
+        <div th:if="${#lists.isEmpty(userDetail.projects)}" class="empty-state">
+            <p>No projects yet.</p>
+        </div>
+        <div class="table-scroll" th:if="${!#lists.isEmpty(userDetail.projects)}">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>LLM</th>
+                    <th>Updated</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="project : ${userDetail.projects}">
+                    <td th:text="${project.id}">1</td>
+                    <td>
+                        <a th:href="@{/admin/projects/{id}(id=${project.id})}" th:text="${project.title}">Title</a>
+                    </td>
+                    <td><span class="badge" th:text="${project.status}">IN_PROGRESS</span></td>
+                    <td th:text="${project.llmProvider ?: '—'}">OPENAI</td>
+                    <td th:text="${project.updatedAt}">date</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -8,6 +8,18 @@
     <p class="muted">Create an account to save your ideas and guided plans.</p>
 
     <form th:action="@{/register}" th:object="${registerRequest}" method="post" class="form-card" novalidate>
+        <label for="username">Username</label>
+        <input id="username"
+               type="text"
+               th:field="*{username}"
+               th:classappend="${#fields.hasErrors('username')} ? 'input-error'"
+               required
+               minlength="3"
+               maxlength="24"
+               autocomplete="username">
+        <p class="error" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></p>
+        <p class="hint">3–24 characters. Start with a letter. Letters, numbers, and underscores only.</p>
+
         <label for="email">Email</label>
         <input id="email"
                type="email"
@@ -15,7 +27,7 @@
                th:classappend="${#fields.hasErrors('email')} ? 'input-error'"
                required
                maxlength="255"
-               autocomplete="username">
+               autocomplete="email">
         <p class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p>
 
         <label for="password">Password</label>
