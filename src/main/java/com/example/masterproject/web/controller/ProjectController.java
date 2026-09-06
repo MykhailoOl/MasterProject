@@ -54,6 +54,10 @@ public class ProjectController {
     @GetMapping
     public String listProjects(Model model) {
         model.addAttribute("projects", projectService.listProjectsForCurrentUser());
+        var providers = llmCredentialService.listForCurrentUser();
+        model.addAttribute(
+                "hasConfiguredProvider",
+                providers.stream().anyMatch(LlmProviderView::isConfigured));
         return "projects/list";
     }
 

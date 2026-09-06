@@ -6,11 +6,16 @@
 <main class="container">
     <div th:if="${message}" class="flash" th:text="${message}"></div>
     <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+    <div th:if="${!hasConfiguredProvider}" class="flash error-flash">
+        You need an AI helper API key before starting a project.
+        <a th:href="@{/settings/llm}">Open AI helpers to add one</a>.
+    </div>
 
     <section class="project-header">
         <h1>Your projects</h1>
         <div class="actions">
             <a class="button" th:href="@{/projects/new}">Start new project</a>
+            <a class="button secondary" th:if="${!hasConfiguredProvider}" th:href="@{/settings/llm}">Add API key</a>
         </div>
     </section>
 
