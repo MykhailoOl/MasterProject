@@ -1,30 +1,149 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spec Assistant</title>
-    <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
-<body>
+<head th:replace="~{fragments/head :: head('Home')}"></head>
+<body class="landing-page">
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container narrow">
-    <section class="hero">
-        <h1>Spec Assistant</h1>
-        <p>
-            A guided elicitation tool that turns a short software idea into a coding-ready SPEC.md
-            for AI coding agents.
-        </p>
-        <p class="muted">
-            You configure an LLM key, describe an idea, answer focused questions by category,
-            then export a structured specification.
+
+<section class="landing-hero">
+    <div class="landing-hero-media" aria-hidden="true">
+        <img th:src="@{/images/ideaspec-hero.png}" alt="">
+    </div>
+    <div class="container landing-hero-copy">
+        <p class="brand-mark">IdeaSpec</p>
+        <h1>Turn a product idea into a clear building plan</h1>
+        <p class="hero-lead">
+            Answer everyday questions in plain language. IdeaSpec writes a structured SPEC file
+            an AI coding assistant can follow—even if you are not a programmer.
         </p>
         <div class="actions">
-            <a class="button" th:if="${currentUserEmail != null}" th:href="@{/projects}">Go to projects</a>
-            <a class="button" th:if="${currentUserEmail == null}" th:href="@{/login}">Log in to start</a>
-            <a class="button secondary" th:if="${currentUserEmail == null}" th:href="@{/register}">Register</a>
+            <a class="button" th:if="${currentUserEmail != null}" th:href="@{/projects}">Open your projects</a>
+            <a class="button" th:if="${currentUserEmail == null}" th:href="@{/register}">Start free</a>
+            <a class="button secondary ghost" th:if="${currentUserEmail == null}" th:href="@{/login}">Log in</a>
+        </div>
+    </div>
+</section>
+
+<main>
+    <section class="landing-section container">
+        <div class="landing-split reveal">
+            <div>
+                <h2>Built for people with the idea, not the code</h2>
+                <p>
+                    Many great product ideas stall because the person who knows the business
+                    cannot explain it in the detail a developer or AI coding tool needs.
+                    IdeaSpec bridges that gap with short, guided questions.
+                </p>
+                <ul class="plain-list landing-list">
+                    <li>No programming vocabulary required</li>
+                    <li>Questions adapt to what you already answered</li>
+                    <li>You leave with a SPEC.md file ready for Cursor or a similar tool</li>
+                </ul>
+            </div>
+            <figure class="landing-figure">
+                <img th:src="@{/images/ideaspec-how-it-works.png}" alt="From spoken idea to a clear written plan">
+            </figure>
+        </div>
+    </section>
+
+    <section class="landing-section landing-band">
+        <div class="container">
+            <div class="section-heading reveal">
+                <h2>How IdeaSpec works</h2>
+                <p>Three simple steps from a rough idea to a usable plan.</p>
+            </div>
+            <div class="step-grid">
+                <article class="step-card reveal">
+                    <span class="step-number">1</span>
+                    <h3>Describe your idea</h3>
+                    <p>Write what you want to build in normal words, the way you would tell a friend.</p>
+                </article>
+                <article class="step-card reveal delay-1">
+                    <span class="step-number">2</span>
+                    <h3>Answer focused questions</h3>
+                    <p>IdeaSpec asks only about the missing pieces: who uses it, what it must do, and what to leave out.</p>
+                </article>
+                <article class="step-card reveal delay-2">
+                    <span class="step-number">3</span>
+                    <h3>Download your SPEC</h3>
+                    <p>Get a clear file you can hand to Cursor so the coding assistant builds what you meant.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-section container">
+        <div class="section-heading reveal">
+            <h2>Topics you can cover</h2>
+            <p>Each topic is explained in everyday language. Turn on only the extras you need.</p>
+        </div>
+        <div class="topic-grid">
+            <article class="topic-card reveal">
+                <h3>What you want</h3>
+                <p>The problem, the better result, and what success looks like.</p>
+            </article>
+            <article class="topic-card reveal delay-1">
+                <h3>Who will use it</h3>
+                <p>Customers, staff, and people who need stronger control.</p>
+            </article>
+            <article class="topic-card reveal delay-2">
+                <h3>What it should do</h3>
+                <p>The main tasks people must complete in the first version.</p>
+            </article>
+            <article class="topic-card reveal">
+                <h3>How people open it</h3>
+                <p>Website, phone, or computer—and which devices matter.</p>
+            </article>
+            <article class="topic-card reveal delay-1">
+                <h3>Optional extras</h3>
+                <p>Sign-in, outside tools, going live, and other details when you need them.</p>
+            </article>
+            <article class="topic-card reveal delay-2">
+                <h3>Clear name and summary</h3>
+                <p>Finish with a product name and a short summary that matches your answers.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="landing-section landing-band">
+        <div class="container">
+            <div class="section-heading reveal">
+                <h2>Choose an AI helper</h2>
+                <p>Connect one provider key so IdeaSpec can ask smart questions and write clearer examples.</p>
+            </div>
+            <div class="llm-grid">
+                <article class="llm-card reveal">
+                    <img th:src="@{/images/llm-openai.png}" alt="OpenAI">
+                    <h3>OpenAI</h3>
+                </article>
+                <article class="llm-card reveal delay-1">
+                    <img th:src="@{/images/llm-anthropic.png}" alt="Anthropic">
+                    <h3>Anthropic</h3>
+                </article>
+                <article class="llm-card reveal delay-2">
+                    <img th:src="@{/images/llm-gemini.png}" alt="Google Gemini">
+                    <h3>Google Gemini</h3>
+                </article>
+                <article class="llm-card reveal delay-3">
+                    <img th:src="@{/images/llm-grok.png}" alt="xAI Grok">
+                    <h3>xAI Grok</h3>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-section container">
+        <div class="landing-cta reveal">
+            <h2>Ready to shape your idea?</h2>
+            <p>Create an account, connect an AI helper, and start your first guided project in minutes.</p>
+            <div class="actions">
+                <a class="button" th:if="${currentUserEmail != null}" th:href="@{/projects/new}">Start a project</a>
+                <a class="button" th:if="${currentUserEmail == null}" th:href="@{/register}">Create account</a>
+                <a class="button secondary" th:if="${currentUserEmail == null}" th:href="@{/login}">Log in</a>
+            </div>
         </div>
     </section>
 </main>
+
+<script th:src="@{/js/reveal.js}"></script>
 </body>
 </html>

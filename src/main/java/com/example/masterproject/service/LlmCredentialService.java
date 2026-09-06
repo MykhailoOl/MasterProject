@@ -3,7 +3,6 @@ package com.example.masterproject.service;
 import com.example.masterproject.llm.LlmClient;
 import com.example.masterproject.llm.LlmClientRegistry;
 import com.example.masterproject.llm.LlmHealthResult;
-import com.example.masterproject.llm.LlmRuntimeSettings;
 import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.User;
 import com.example.masterproject.model.entity.UserLlmCredential;
@@ -132,24 +131,17 @@ public class LlmCredentialService {
     }
 
     private LlmProviderView toView(LlmProvider provider, UserLlmCredential credential) {
-        LlmRuntimeSettings settings = LlmRuntimeSettings.forProvider(provider);
         LlmProviderView view = new LlmProviderView();
         view.setProvider(provider);
         view.setDisplayName(displayName(provider));
         view.setConfigured(credential != null);
-        view.setStatusLabel(credential != null ? "Configured" : "Not configured");
+        view.setStatusLabel(credential != null ? "Ready" : "Not connected yet");
         view.setLastVerifiedLabel(
                 credential == null || credential.getLastVerifiedAt() == null
                         ? null
                         : VERIFIED_FORMAT.format(credential.getLastVerifiedAt()));
-        view.setParameters(List.of(
-                "model=" + settings.model(),
-                "elicitation temperature=" + settings.elicitationTemperature(),
-                "simplify temperature=" + settings.simplifyTemperature(),
-                "elicitation max output tokens=" + settings.elicitationMaxTokens(),
-                "simplify max output tokens=" + settings.simplifyMaxTokens(),
-                "health check=" + settings.healthCheckDescription()));
-        view.setHealthCheckHint(settings.healthCheckDescription());
+        view.setParameters(List.of());
+        view.setHealthCheckHint(null);
         return view;
     }
 
@@ -157,7 +149,7 @@ public class LlmCredentialService {
         return switch (provider) {
             case OPENAI -> "OpenAI";
             case ANTHROPIC -> "Anthropic";
-            case GEMINI -> "Google Gemini (free tier)";
+            case GEMINI -> "Google Gemini";
             case GROK -> "xAI Grok";
         };
     }

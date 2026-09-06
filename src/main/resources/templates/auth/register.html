@@ -1,16 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-    <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<head th:replace="~{fragments/head :: head('Register')}"></head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
     <h1>Create account</h1>
-    <p class="muted">Register to save projects and study data under your account.</p>
+    <p class="muted">Create an account to save your ideas and guided plans.</p>
 
     <form th:action="@{/register}" th:object="${registerRequest}" method="post" class="form-card" novalidate>
         <label for="email">Email</label>

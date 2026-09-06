@@ -1,19 +1,14 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New project</title>
-    <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<head th:replace="~{fragments/head :: head('New project')}"></head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
     <h1>New project</h1>
-    <p class="muted">Describe the idea, choose the LLM and categories. The idea is analyzed first, then each question targets the most important missing requirement. Categories stop early when complete, with a safety cap of 5 questions each. Title and overall idea are finalized at the end.</p>
+    <p class="muted">Describe your idea in everyday words, choose an AI helper, and pick the topics you want to cover. IdeaSpec will ask only about what is still missing.</p>
 
     <div th:if="${#lists.isEmpty(providers) or !hasConfiguredProvider}" class="flash error-flash">
-        Add and verify an LLM API key in <a th:href="@{/settings/llm}">LLM settings</a> first.
+        Connect an AI helper in <a th:href="@{/settings/llm}">AI helpers</a> first.
     </div>
 
     <form th:action="@{/projects}" th:object="${createProjectRequest}" method="post" class="form-card" novalidate>
@@ -21,55 +16,54 @@
             <p th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
         </div>
 
-        <label for="initialIdea">Initial idea</label>
+        <label for="initialIdea">Your idea</label>
         <textarea id="initialIdea" th:field="*{initialIdea}" rows="6"
                   th:classappend="${#fields.hasErrors('initialIdea')} ? 'input-error'"
-                  minlength="10" maxlength="5000" required></textarea>
+                  minlength="10" maxlength="5000" required
+                  placeholder="Example: A website where parents can see which nearby toy store still has a specific toy in stock."></textarea>
         <p class="error" th:if="${#fields.hasErrors('initialIdea')}" th:errors="*{initialIdea}"></p>
 
-        <label for="llmProvider">LLM provider</label>
+        <label for="llmProvider">AI helper</label>
         <select id="llmProvider" th:field="*{llmProvider}" required>
-            <option value="">Select provider</option>
+            <option value="">Choose a helper</option>
             <option th:each="providerView : ${providers}"
                     th:value="${providerView.provider}"
                     th:disabled="${!providerView.configured}"
-                    th:text="${providerView.displayName} + (${providerView.configured} ? '' : ' (not configured)')">
+                    th:text="${providerView.displayName} + (${providerView.configured} ? '' : ' (not connected)')">
                 OpenAI
             </option>
         </select>
         <p class="error" th:if="${#fields.hasErrors('llmProvider')}" th:errors="*{llmProvider}"></p>
 
         <fieldset class="fieldset">
-            <legend>Mandatory categories</legend>
-            <p class="muted">Always included during elicitation.</p>
+            <legend>Always included</legend>
+            <p class="muted">These topics help shape a useful first plan.</p>
             <ul class="plain-list">
                 <li th:each="item : ${mandatoryCategories}">
-                    <strong th:text="${item.displayName}">Goal</strong>
+                    <strong th:text="${item.displayName}">What you want</strong>
                     — <span th:text="${item.description}">desc</span>
-                    <span class="badge" th:text="'max ' + ${item.maxQuestions} + ' q'">max 2 q</span>
                 </li>
             </ul>
-            <p class="hint">At the end you will pick a project title from AI suggestions and confirm an overall idea.</p>
+            <p class="hint">At the end you will choose a project name and confirm a short summary.</p>
         </fieldset>
 
         <fieldset class="fieldset">
-            <legend>Optional categories</legend>
-            <p class="muted">Turn on only what you need. Unselected categories are omitted from SPEC.md.</p>
-            <label class="check-row" th:each="item : ${optionalCategories}">
+            <legend>Optional topics</legend>
+            <p class="muted">Turn on only what matters for your idea. Skipped topics stay out of the final plan.</p>
+            <label class="check-row topic-option" th:each="item : ${optionalCategories}">
                 <input type="checkbox"
                        th:field="*{optionalCategories}"
                        th:value="${item.category}">
                 <span>
-                    <strong th:text="${item.displayName}">Testing</strong>
-                    — <span th:text="${item.description}">desc</span>
-                    <span class="badge" th:text="'max ' + ${item.maxQuestions} + ' q'">max 1 q</span>
+                    <strong th:text="${item.displayName}">How you will check it</strong>
+                    <span th:text="${item.description}">desc</span>
                 </span>
             </label>
         </fieldset>
 
         <label class="check-row">
             <input type="checkbox" th:field="*{simplifyModeEnabled}">
-            <span>Enable simplify mode (right-click a sentence on questions to simplify via your LLM)</span>
+            <span>Make questions easier to read (right-click a sentence to simplify it)</span>
         </label>
 
         <div class="actions">

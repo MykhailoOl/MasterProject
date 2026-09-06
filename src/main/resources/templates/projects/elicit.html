@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
-    <title>Elicitation</title>
+    <title>Questions · IdeaSpec</title>
+    <link rel="icon" type="image/png" th:href="@{/images/ideaspec-logo.png}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
@@ -20,13 +24,13 @@
         <span th:text="${view.answeredCount}">0</span>
         /
         <span th:text="${view.totalBudget}">0</span>
-        questions used
+        answers so far
     </p>
 
     <section th:if="${view.complete}" class="complete-layout">
         <div class="complete-video-panel">
-            <h2>Next step with your SPEC file</h2>
-            <p class="muted">Watch this short guide, then download SPEC.md and open it in Cursor.</p>
+            <h2>What to do with your plan</h2>
+            <p class="muted">Watch this short guide, then download your SPEC file and open it in Cursor.</p>
             <div class="complete-video-frame">
                 <video controls playsinline preload="metadata"
                        th:attr="aria-label='Guide for using SPEC.md with Cursor'">
@@ -40,21 +44,21 @@
             </div>
         </div>
         <div class="complete-actions-panel form-card">
-            <h2>Your specification</h2>
-            <p class="muted" th:if="${latestSpec != null}">SPEC.md is ready. Download it, then choose what to do next.</p>
-            <p class="muted" th:if="${latestSpec == null}">Generating SPEC.md…</p>
+            <h2>Your plan is ready</h2>
+            <p class="muted" th:if="${latestSpec != null}">Your SPEC file is ready. Download it, then choose what to do next.</p>
+            <p class="muted" th:if="${latestSpec == null}">Preparing your SPEC file…</p>
             <div class="actions stacked-actions">
                 <a class="button"
                    th:if="${latestSpec != null}"
-                   th:href="@{/projects/{id}/export/spec/download(id=${view.project.id})}">Download SPEC.md</a>
+                   th:href="@{/projects/{id}/export/spec/download(id=${view.project.id})}">Download SPEC file</a>
                 <form th:action="@{/projects/{id}/export/spec(id=${view.project.id})}" method="post">
-                    <button class="button secondary" type="submit">Regenerate SPEC.md</button>
+                    <button class="button secondary" type="submit">Create SPEC file again</button>
                 </form>
                 <button class="button secondary" type="button" disabled title="Coming soon">Upgrade project</button>
                 <button class="button secondary" type="button" disabled title="Coming soon">Update cybersecurity</button>
                 <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Project page</a>
             </div>
-            <p class="hint">Upgrade project and Update cybersecurity will be available in a later version.</p>
+            <p class="hint">Upgrade project and Update cybersecurity will be available later.</p>
         </div>
     </section>
 

@@ -1,49 +1,48 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM API settings</title>
-    <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<head th:replace="~{fragments/head :: head('AI helpers')}"></head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container">
-    <h1>LLM API keys</h1>
-    <p class="muted">Keys are stored encrypted for your account. Runtime parameters are fixed by the app.</p>
+    <h1>AI helpers</h1>
+    <p class="muted">Connect one helper so IdeaSpec can ask clearer questions and suggest example answers. Your key stays private and encrypted.</p>
 
     <div th:if="${message}" class="flash" th:text="${message}"></div>
     <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
 
     <section class="card-grid">
-        <article class="card" th:each="providerView : ${providers}">
-            <h3 th:text="${providerView.displayName}">OpenAI</h3>
-            <p>
-                <span class="badge" th:text="${providerView.statusLabel}">Configured</span>
-            </p>
+        <article class="card provider-card" th:each="providerView : ${providers}">
+            <div class="provider-card-top">
+                <img th:src="@{'/images/llm-' + ${#strings.toLowerCase(providerView.provider.name())} + '.png'}"
+                     th:alt="${providerView.displayName}"
+                     width="56"
+                     height="56">
+                <div>
+                    <h3 th:text="${providerView.displayName}">OpenAI</h3>
+                    <span class="badge" th:text="${providerView.statusLabel}">Ready</span>
+                </div>
+            </div>
             <p class="muted" th:if="${providerView.lastVerifiedLabel != null}">
-                Last verified:
+                Last checked:
                 <span th:text="${providerView.lastVerifiedLabel}">2026-01-01 12:00</span>
             </p>
-            <ul class="param-list">
-                <li th:each="settingLine : ${providerView.parameters}" th:text="${settingLine}">param</li>
-            </ul>
             <form th:if="${providerView.configured}"
                   th:action="@{/settings/llm/verify}"
                   method="post"
                   class="inline-form">
                 <input type="hidden" name="provider" th:value="${providerView.provider}">
-                <button class="button secondary" type="submit">Check API</button>
+                <button class="button secondary" type="submit">Check connection</button>
             </form>
         </article>
     </section>
 
     <section class="form-card narrow-block">
-        <h2>Save / update API key</h2>
+        <h2>Add or update your key</h2>
+        <p class="muted">Paste the API key from your chosen provider. IdeaSpec only checks that the key works.</p>
         <form th:action="@{/settings/llm}" th:object="${saveLlmCredentialRequest}" method="post">
-            <label for="provider">Provider</label>
+            <label for="provider">AI helper</label>
             <select id="provider" th:field="*{provider}" required>
-                <option value="">Select provider</option>
+                <option value="">Choose a helper</option>
                 <option th:each="providerView : ${providers}"
                         th:value="${providerView.provider}"
                         th:text="${providerView.displayName}">OpenAI</option>
@@ -53,14 +52,7 @@
             <label for="apiKey">API key</label>
             <input id="apiKey" type="password" th:field="*{apiKey}" required autocomplete="off">
             <p class="error" th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}"></p>
-            <p class="hint">
-                Saving verifies only that the provider accepts the API key and replaces any existing key.
-                OpenAI: GET /v1/models, then chat completions with gpt-5-mini.
-                Anthropic: GET /v1/models, then messages with claude-haiku-4-5.
-                Gemini: GET /v1beta/models, then generateContent with gemini-3.7-flash.
-                Grok: GET /v1/api-key, then chat completions with grok-4.6.
-                Model access, credits, and licenses are checked only when a model is used.
-            </p>
+            <p class="hint">Saving replaces any older key for that helper.</p>
 
             <div class="actions">
                 <button class="button" type="submit">Save and check</button>
