@@ -114,6 +114,13 @@ public class ProjectController {
             }
             model.addAttribute("answerQuestionRequest", answerRequest);
             model.addAttribute("selectedChoice", "");
+            if (view.complete()) {
+                ExportArtifact latestSpec = specExportService.latestSpec(id);
+                if (latestSpec == null) {
+                    latestSpec = specExportService.generateSpecMarkdown(id);
+                }
+                model.addAttribute("latestSpec", latestSpec);
+            }
             return "projects/elicit";
         } catch (IllegalStateException ex) {
             appLog.error("ELICITATION", "Could not start or continue elicitation for project #" + id, ex);
@@ -123,7 +130,7 @@ public class ProjectController {
         }
     }
 
-    @PostMapping("/{id}/elicit/{questionId}")
+    @PostMapping("/{id}/elicit/{questionId:\\d+}")
     public String answer(
             @PathVariable Long id,
             @PathVariable Long questionId,
@@ -157,11 +164,26 @@ public class ProjectController {
         }
     }
 
+    @PostMapping("/{id}/elicit/fast-finish")
+    public String fastFinish(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            elicitationService.fastFinish(id);
+            redirectAttributes.addFlashAttribute(
+                    "message", "Fast finish filled the remaining questions with generated examples.");
+            return "redirect:/projects/" + id + "/elicit";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            appLog.error("ELICITATION", "Fast finish failed for project #" + id, ex);
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Fast finish could not complete. Please try again.");
+            return "redirect:/projects/" + id + "/elicit";
+        }
+    }
+
     @PostMapping("/{id}/export/spec")
     public String exportSpec(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         specExportService.generateSpecMarkdown(id);
         redirectAttributes.addFlashAttribute("message", "SPEC.md generated.");
-        return "redirect:/projects/" + id;
+        return "redirect:/projects/" + id + "/elicit";
     }
 
     @GetMapping("/{id}/export/spec/download")

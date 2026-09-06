@@ -99,8 +99,8 @@ class ElicitationServiceFallbackTests {
         assertThat(view.currentQuestion().getQuestionText())
                 .isEqualTo("What concrete problem or frustration should the first version remove for people?");
         assertThat(view.currentQuestion().getFocusCriterion()).isEqualTo("problem");
-        assertThat(view.answerExample())
-                .isEqualTo("Parents waste evenings searching three shops because toy stock is unclear.");
+        assertThat(view.answerExample()).contains("Assignment Tracker");
+        assertThat(view.answerExample()).containsIgnoringCase("problem");
     }
 
     @Test

@@ -58,7 +58,7 @@ public final class TaxonomyCatalog {
             new Definition(
                     RequirementCategory.USERS_AND_ROLES,
                     "Users and roles",
-                    "Customers, staff, managers, and what each group may do.",
+                    "Who the product is for, who works with it day to day, who controls sensitive actions, and what each group may do.",
                     true,
                     5,
                     "Users and roles",
@@ -72,17 +72,17 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "operators",
                                     "People who run day-to-day work in the business.",
-                                    "Besides customers, who in the business will use it during a normal workday?",
+                                    "Besides the everyday customers, who inside the business will use it during a normal workday?",
                                     "Store clerks who update stock and answer customer questions."),
                             new Criterion(
                                     "managers",
                                     "People who control settings, accounts, or sensitive actions.",
-                                    "Who needs stronger control, such as pricing, inventory overrides, or staff accounts?",
+                                    "Who should be allowed to change prices, override stock, or manage staff access?",
                                     "The store owner and one store manager."),
                             new Criterion(
                                     "permissions",
                                     "What each group may do or must be blocked from doing.",
-                                    "What should customers, staff, and managers each be allowed or blocked from doing?",
+                                    "For the people you named, what should each group be allowed or blocked from doing?",
                                     "Customers browse stock; staff update stock; only managers change prices and add staff."),
                             new Criterion(
                                     "usage_context",
@@ -121,30 +121,30 @@ public final class TaxonomyCatalog {
             new Definition(
                     RequirementCategory.PLATFORM,
                     "Platform",
-                    "Delivery channel, supported environments, technical constraints, and quality expectations.",
+                    "How people open the product, which devices matter, and any business limits on tools or quality.",
                     true,
                     5,
-                    "Platform and stack",
+                    "Platform and delivery",
                     true,
                     List.of(
                             new Criterion(
                                     "delivery_channel",
-                                    "Whether the product is web, mobile, desktop, API, embedded, or another channel.",
+                                    "Whether people use a website, phone app, desktop app, or another channel.",
                                     "How should people open and use the product: website, phone app, desktop, or something else?",
                                     "A mobile-friendly website first; no native app in version one."),
                             new Criterion(
                                     "supported_environments",
-                                    "Required devices, operating systems, browsers, or runtime environments.",
+                                    "Required phones, computers, browsers, or places where it must work.",
                                     "Which phones, computers, or browsers must work from day one?",
                                     "Current Chrome, Safari, and Edge on phones and laptops."),
                             new Criterion(
                                     "technology_constraints",
-                                    "Required or prohibited technologies and compatibility constraints.",
+                                    "Business rules that require or forbid certain tools or systems.",
                                     "Are any tools, systems, or technologies required or forbidden by the business?",
                                     "Must work with the existing store inventory spreadsheet export."),
                             new Criterion(
                                     "quality_constraints",
-                                    "Platform-level performance, availability, accessibility, or offline expectations.",
+                                    "Speed, offline use, accessibility, or uptime expectations that matter most.",
                                     "Which quality need matters most: speed, offline use, accessibility, or uptime?",
                                     "Search results should appear in under two seconds on a normal phone connection."))),
             new Definition(
@@ -179,94 +179,94 @@ public final class TaxonomyCatalog {
             new Definition(
                     RequirementCategory.DATA_ENTITIES,
                     "Data entities",
-                    "Core information, relationships, ownership, and lifecycle rules.",
+                    "What information the product must remember, how pieces connect, who may change them, and how long they stay.",
                     false,
                     5,
-                    "Data model",
+                    "Information the product keeps",
                     true,
                     List.of(
                             new Criterion(
                                     "entities_attributes",
-                                    "Core entities and the information each must retain.",
+                                    "Core information the product must remember.",
                                     "What information must the product remember to do its job?",
                                     "Stores, toys, stock counts, reservations, and staff accounts."),
                             new Criterion(
                                     "relationships",
-                                    "Relationships and cardinality between core entities.",
+                                    "How those pieces of information connect.",
                                     "How are those pieces of information connected to each other?",
                                     "One store has many toys; one reservation belongs to one customer and one toy."),
                             new Criterion(
                                     "ownership_access",
-                                    "Who owns, creates, reads, and changes the data.",
+                                    "Who may view or change each important piece of information.",
                                     "Who may view or change each important piece of stored information?",
                                     "Staff update stock for their store; managers can edit any store; customers see only public stock."),
                             new Criterion(
                                     "lifecycle",
-                                    "Creation, update, deletion, retention, and audit rules.",
+                                    "How long records stay and when they may change or be removed.",
                                     "How long should key records be kept, and when may they be changed or removed?",
                                     "Reservations expire after 24 hours; stock history is kept for 90 days."))),
             new Definition(
                     RequirementCategory.AUTHENTICATION,
                     "Authentication",
-                    "Identity, authorization, session recovery, and protection expectations.",
+                    "Who needs an account, what stronger permissions exist, how sign-in recovery works, and what must stay private.",
                     false,
                     5,
-                    "Authentication and access",
+                    "Sign-in and access",
                     true,
                     List.of(
                             new Criterion(
                                     "identity",
-                                    "Account creation and supported sign-in methods.",
+                                    "Who needs an account and how people sign in.",
                                     "Who needs an account, and how should they sign in?",
                                     "Customers can browse without an account; staff sign in with email and password."),
                             new Criterion(
                                     "authorization",
-                                    "Role and resource-level authorization rules.",
+                                    "Which actions need stronger permission than a normal signed-in person.",
                                     "Which actions need stronger permission than a normal signed-in user?",
                                     "Only managers can create staff accounts or change prices."),
                             new Criterion(
                                     "session_recovery",
-                                    "Session duration, sign-out, credential recovery, and account recovery.",
+                                    "How long people stay signed in and how they recover a lost password.",
                                     "How long should people stay signed in, and how do they recover a lost password?",
                                     "Staff stay signed in for one workday; password reset uses email."),
                             new Criterion(
                                     "security_constraints",
-                                    "Relevant privacy, sensitive-data, and stronger-authentication constraints.",
+                                    "Privacy or safety rules that sign-in must protect.",
                                     "What security or privacy rule must sign-in protect?",
                                     "Customer phone numbers are hidden from other customers and from junior staff."))),
             new Definition(
                     RequirementCategory.INTEGRATIONS,
                     "Integrations",
-                    "External systems, exchanged data, contracts, authentication, and failure limits.",
+                    "Outside systems the product must connect to, what data moves, how it stays limited, and what happens when the outside system fails.",
                     false,
                     5,
-                    "Integrations",
+                    "Connections to other systems",
                     true,
                     List.of(
                             new Criterion(
                                     "external_systems",
-                                    "External services or systems and the purpose of each connection.",
+                                    "Outside systems and why the product must connect to them.",
                                     "Which outside system must this product connect to, and why?",
                                     "Nightly stock files from the existing inventory spreadsheet tool."),
                             new Criterion(
                                     "data_exchange",
-                                    "Data direction, payload, trigger, and expected result.",
+                                    "What data moves, when it moves, and what result is expected.",
                                     "What data moves between systems, and when does that happen?",
                                     "Each night the store sends toy IDs and stock counts; the product updates availability."),
                             new Criterion(
                                     "contract_security",
-                                    "Protocol, API contract, authentication, and secret-handling constraints.",
+                                    "How the connection should be limited or protected.",
                                     "How should that connection be secured or limited?",
                                     "Only the store system may upload stock using a private upload key."),
                             new Criterion(
                                     "failure_limits",
-                                    "Timeout, retry, rate-limit, availability, and degraded-mode behaviour.",
+                                    "What should happen when the outside system is late or unavailable.",
                                     "What should happen if that outside system is late or unavailable?",
                                     "Keep yesterday's stock visible and mark it as last updated overnight."))),
             new Definition(
                     RequirementCategory.ERROR_HANDLING,
                     "Error handling",
-                    "Failure scenarios, user communication, recovery, and operational visibility.",
+                    "Important failures, what people should see, how the product recovers, and what staff need recorded.",
                     false,
                     5,
                     "Error handling",
@@ -274,22 +274,22 @@ public final class TaxonomyCatalog {
                     List.of(
                             new Criterion(
                                     "failure_scenarios",
-                                    "Important invalid-input, dependency, concurrency, and system failure scenarios.",
+                                    "Important failures that would hurt people if handled badly.",
                                     "Which failure would hurt people most if the product handled it badly?",
                                     "Two customers reserve the last toy at the same time."),
                             new Criterion(
                                     "user_response",
-                                    "Safe, useful user-facing behaviour and messages.",
+                                    "What the person should see or do when that failure happens.",
                                     "What should the person see or be able to do when that failure happens?",
                                     "Show that the toy just sold out and offer the next nearest store."),
                             new Criterion(
                                     "recovery",
-                                    "Retry, rollback, idempotency, fallback, or manual recovery behaviour.",
+                                    "How the product should recover so people and records stay safe.",
                                     "How should the product recover so data and people stay safe?",
                                     "Only one reservation is kept; the second attempt is rejected cleanly."),
                             new Criterion(
                                     "observability",
-                                    "Logging, monitoring, correlation, and support information.",
+                                    "What should be recorded so staff can understand and fix important failures.",
                                     "What should be recorded so staff can understand and fix important failures?",
                                     "Log the toy, store, and both reservation attempts with timestamps."))),
             new Definition(
@@ -324,30 +324,30 @@ public final class TaxonomyCatalog {
             new Definition(
                     RequirementCategory.DEPLOYMENT,
                     "Deployment",
-                    "Target environments, release process, configuration, operations, and rollback.",
+                    "Where the live product runs, how updates go live, how secrets are kept, and what backup or undo is needed.",
                     false,
                     5,
-                    "Deployment",
+                    "Going live and updates",
                     true,
                     List.of(
                             new Criterion(
                                     "environments",
-                                    "Hosting target and required development, test, staging, or production environments.",
+                                    "Where the live product runs and whether a separate test copy is needed.",
                                     "Where will the live product run, and do you need a separate test copy?",
                                     "One test site and one live site hosted on a standard cloud host."),
                             new Criterion(
                                     "release_process",
-                                    "Build, approval, migration, and release automation expectations.",
+                                    "How a finished update moves into the live site.",
                                     "How should a new version move from finished work into the live site?",
                                     "Deploy to test first, then promote to live after a short checklist."),
                             new Criterion(
                                     "configuration",
-                                    "Environment configuration, secrets, and infrastructure dependencies.",
+                                    "How secrets and environment settings should be supplied safely.",
                                     "How should secrets and environment settings be supplied safely?",
                                     "Database and upload keys stay in host environment settings, not in code."),
                             new Criterion(
                                     "operations",
-                                    "Monitoring, backup, scaling, incident response, and rollback expectations.",
+                                    "Backup, alerts, or undo needs after go-live.",
                                     "What must be ready after go-live for backup, alerts, or undo?",
                                     "Daily database backups and a one-step rollback to the previous release."))),
             new Definition(

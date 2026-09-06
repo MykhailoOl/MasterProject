@@ -52,6 +52,9 @@ public class Question {
     @Column(name = "focus_criterion", length = 64)
     private String focusCriterion;
 
+    @Column(name = "answer_example", columnDefinition = "TEXT")
+    private String answerExample;
+
     @Min(1)
     @Column(name = "question_order", nullable = false)
     private int questionOrder;
@@ -114,6 +117,14 @@ public class Question {
 
     public void setFocusCriterion(String focusCriterion) {
         this.focusCriterion = focusCriterion;
+    }
+
+    public String getAnswerExample() {
+        return answerExample;
+    }
+
+    public void setAnswerExample(String answerExample) {
+        this.answerExample = answerExample;
     }
 
     public int getQuestionOrder() {

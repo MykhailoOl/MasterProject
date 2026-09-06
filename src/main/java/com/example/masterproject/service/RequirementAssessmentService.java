@@ -70,6 +70,7 @@ public class RequirementAssessmentService {
                 value must summarize only facts supported by the idea and must be empty when none exist.
                 Express distinct requirements as short atomic statements separated by " | ".
                 Preserve actors, behaviours, conditions, boundaries, and measurable constraints when stated.
+                Keep the stakeholder's everyday wording for people; do not rename them into programming role labels yet.
                 """;
         String userPrompt = """
                 Initial idea:
@@ -142,6 +143,7 @@ public class RequirementAssessmentService {
                 value must be a concise, internally consistent summary supported by the supplied text.
                 Express distinct requirements as short atomic statements separated by " | ".
                 Preserve actors, behaviours, conditions, boundaries, and measurable constraints when stated.
+                Keep the stakeholder's everyday wording for people; do not rename them into programming role labels yet.
                 """;
         String userPrompt = """
                 Category: %s

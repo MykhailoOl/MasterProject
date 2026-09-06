@@ -10,11 +10,12 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container narrow">
+<main class="container" th:classappend="${view.complete} ? '' : ' narrow'">
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
     <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
 
     <h1 th:text="${view.project.title}">Project</h1>
-    <p class="muted">
+    <p class="muted" th:unless="${view.complete}">
         Progress:
         <span th:text="${view.answeredCount}">0</span>
         /
@@ -22,19 +23,43 @@
         questions used
     </p>
 
-    <section th:if="${view.complete}" class="form-card">
-        <h2>Elicitation complete</h2>
-        <p>You can generate and download SPEC.md now.</p>
-        <div class="actions">
-            <form th:action="@{/projects/{id}/export/spec(id=${view.project.id})}" method="post">
-                <button class="button" type="submit">Generate SPEC.md</button>
-            </form>
-            <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Project page</a>
+    <section th:if="${view.complete}" class="complete-layout">
+        <div class="complete-video-panel">
+            <h2>Next step with your SPEC file</h2>
+            <p class="muted">Watch this short guide, then download SPEC.md and open it in Cursor.</p>
+            <div class="complete-video-frame">
+                <video controls playsinline preload="metadata"
+                       th:attr="aria-label='Guide for using SPEC.md with Cursor'">
+                    <source th:src="@{/videos/spec-cursor-guide.mp4}" type="video/mp4">
+                </video>
+                <p class="muted complete-video-placeholder">
+                    Add your recording as
+                    <code>src/main/resources/static/videos/spec-cursor-guide.mp4</code>
+                    (about 1–2 minutes).
+                </p>
+            </div>
+        </div>
+        <div class="complete-actions-panel form-card">
+            <h2>Your specification</h2>
+            <p class="muted" th:if="${latestSpec != null}">SPEC.md is ready. Download it, then choose what to do next.</p>
+            <p class="muted" th:if="${latestSpec == null}">Generating SPEC.md…</p>
+            <div class="actions stacked-actions">
+                <a class="button"
+                   th:if="${latestSpec != null}"
+                   th:href="@{/projects/{id}/export/spec/download(id=${view.project.id})}">Download SPEC.md</a>
+                <form th:action="@{/projects/{id}/export/spec(id=${view.project.id})}" method="post">
+                    <button class="button secondary" type="submit">Regenerate SPEC.md</button>
+                </form>
+                <button class="button secondary" type="button" disabled title="Coming soon">Upgrade project</button>
+                <button class="button secondary" type="button" disabled title="Coming soon">Update cybersecurity</button>
+                <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Project page</a>
+            </div>
+            <p class="hint">Upgrade project and Update cybersecurity will be available in a later version.</p>
         </div>
     </section>
 
     <section th:if="${!view.complete && view.currentQuestion != null}" class="form-card">
-        <p class="badge" th:text="${view.currentQuestion.category}">GOAL</p>
+        <p class="badge" th:text="${view.categoryLabel}">Goal</p>
         <div id="question-text"
              class="question-text"
              th:attr="data-simplify=${view.project.simplifyModeEnabled}"
@@ -101,6 +126,13 @@
                 <button class="button" type="submit">Submit answer</button>
                 <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Back</a>
             </div>
+        </form>
+
+        <form class="fast-finish-form"
+              th:action="@{/projects/{id}/elicit/fast-finish(id=${view.project.id})}"
+              method="post">
+            <button class="button secondary" type="submit">Fast finish (dev)</button>
+            <p class="hint">Fills remaining questions with generated example answers for testing.</p>
         </form>
     </section>
 </main>

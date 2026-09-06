@@ -1,6 +1,8 @@
 spring:
   application:
     name: MasterProject
+  profiles:
+    default: local
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/thesis_app
     username: thesis

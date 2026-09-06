@@ -26,6 +26,7 @@ public class SpecExportService {
     private final ProjectCategoryRepository projectCategoryRepository;
     private final RequirementSlotRepository requirementSlotRepository;
     private final ExportArtifactRepository exportArtifactRepository;
+    private final SpecEnrichmentService specEnrichmentService;
     private final AppLog appLog;
 
     public SpecExportService(
@@ -33,11 +34,13 @@ public class SpecExportService {
             ProjectCategoryRepository projectCategoryRepository,
             RequirementSlotRepository requirementSlotRepository,
             ExportArtifactRepository exportArtifactRepository,
+            SpecEnrichmentService specEnrichmentService,
             AppLog appLog) {
         this.projectService = projectService;
         this.projectCategoryRepository = projectCategoryRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.exportArtifactRepository = exportArtifactRepository;
+        this.specEnrichmentService = specEnrichmentService;
         this.appLog = appLog;
     }
 
@@ -67,6 +70,8 @@ public class SpecExportService {
         markdown.append(summary).append("\n\n");
 
         List<String> openDecisions = new ArrayList<>();
+        RequirementSlot usersSlot = slots.get(RequirementCategory.USERS_AND_ROLES);
+        String usersText = usersSlot == null || usersSlot.getValue() == null ? "" : usersSlot.getValue();
 
         for (ProjectCategory category : enabled) {
             TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(category.getCategory());
@@ -76,7 +81,7 @@ public class SpecExportService {
             RequirementSlot slot = slots.get(category.getCategory());
             markdown.append("## ").append(definition.specHeading()).append("\n");
             if (slot == null || slot.getValue() == null || slot.getValue().isBlank()) {
-                markdown.append("- Not specified\n\n");
+                markdown.append("- Not specified\n");
                 openDecisions.add(definition.displayName() + " was selected but not filled in.");
             } else {
                 for (String line : slot.getValue().split("\\r?\\n|\\|")) {
@@ -85,11 +90,38 @@ public class SpecExportService {
                         markdown.append("- ").append(cleaned).append("\n");
                     }
                 }
-                markdown.append("\n");
                 if (slot.getCompleteness() < 0.7) {
                     openDecisions.add(definition.displayName() + " still looks incomplete.");
                 }
             }
+
+            if (category.getCategory() == RequirementCategory.USERS_AND_ROLES) {
+                markdown.append("\n### Implementation roles for coding\n");
+                markdown.append("These roles turn everyday stakeholder wording into settings the product needs:\n");
+                for (String role : specEnrichmentService.enrichUsersAndRoles(project, usersText)) {
+                    markdown.append("- ").append(role).append("\n");
+                }
+            }
+
+            if (category.getCategory() == RequirementCategory.AUTHENTICATION) {
+                String authText = slot == null || slot.getValue() == null ? "" : slot.getValue();
+                markdown.append("\n### Access defaults for coding\n");
+                for (String note : specEnrichmentService.enrichAuthentication(project, authText, usersText)) {
+                    markdown.append("- ").append(note).append("\n");
+                }
+            }
+
+            markdown.append("\n");
+        }
+
+        if (enabled.stream().noneMatch(row -> row.getCategory() == RequirementCategory.USERS_AND_ROLES)) {
+            markdown.append("## Users and roles\n");
+            markdown.append("- Not captured during elicitation.\n\n");
+            markdown.append("### Implementation roles for coding\n");
+            for (String role : specEnrichmentService.enrichUsersAndRoles(project, "")) {
+                markdown.append("- ").append(role).append("\n");
+            }
+            markdown.append("\n");
         }
 
         markdown.append("## Open decisions / unknowns\n");
@@ -104,6 +136,7 @@ public class SpecExportService {
 
         markdown.append("## Agent working notes\n");
         markdown.append("- Prefer implementing only what is listed under Core features / Goals.\n");
+        markdown.append("- Implement the Implementation roles for coding even when the stakeholder used everyday words.\n");
         markdown.append("- Ask before inventing requirements that contradict Open decisions.\n");
         markdown.append("- Keep changes scoped; do not expand into Non-goals if that section exists.\n");
         markdown.append("- Write clear code and tests that match Testing expectations when present.\n");
