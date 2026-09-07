@@ -22,6 +22,35 @@
     <div id="llm-error" class="flash error-flash" hidden th:attr="hidden=${errorMessage == null}" th:text="${errorMessage}"></div>
 
     <section class="settings-layout">
+        <section class="card-grid">
+            <article class="card provider-card"
+                     th:each="providerView : ${providers}"
+                     th:attr="data-provider=${providerView.provider.name()}">
+                <div class="provider-card-top">
+                    <img th:src="@{'/images/llm-' + ${#strings.toLowerCase(providerView.provider.name())} + '.png'}"
+                         th:alt="${providerView.displayName}"
+                         width="56"
+                         height="56">
+                    <div>
+                        <h3 th:text="${providerView.displayName}">OpenAI</h3>
+                        <span class="badge provider-status" th:text="${providerView.statusLabel}">Ready</span>
+                    </div>
+                </div>
+                <p class="muted provider-checked"
+                   th:attr="hidden=${providerView.lastVerifiedLabel == null}">
+                    Last checked:
+                    <span class="provider-checked-time"
+                          th:text="${providerView.lastVerifiedLabel}">2026-01-01 12:00</span>
+                </p>
+                <button th:if="${providerView.configured}"
+                        class="button secondary check-connection"
+                        type="button"
+                        th:attr="data-provider=${providerView.provider.name()}">
+                    Check connection
+                </button>
+            </article>
+        </section>
+
         <div class="settings-video-panel form-card">
             <h2>How to get an API key</h2>
             <p class="muted">
@@ -41,60 +70,29 @@
             </div>
         </div>
 
-        <div class="settings-main-panel">
-            <section class="card-grid">
-                <article class="card provider-card"
-                         th:each="providerView : ${providers}"
-                         th:attr="data-provider=${providerView.provider.name()}">
-                    <div class="provider-card-top">
-                        <img th:src="@{'/images/llm-' + ${#strings.toLowerCase(providerView.provider.name())} + '.png'}"
-                             th:alt="${providerView.displayName}"
-                             width="56"
-                             height="56">
-                        <div>
-                            <h3 th:text="${providerView.displayName}">OpenAI</h3>
-                            <span class="badge provider-status" th:text="${providerView.statusLabel}">Ready</span>
-                        </div>
-                    </div>
-                    <p class="muted provider-checked"
-                       th:attr="hidden=${providerView.lastVerifiedLabel == null}">
-                        Last checked:
-                        <span class="provider-checked-time"
-                              th:text="${providerView.lastVerifiedLabel}">2026-01-01 12:00</span>
-                    </p>
-                    <button th:if="${providerView.configured}"
-                            class="button secondary check-connection"
-                            type="button"
-                            th:attr="data-provider=${providerView.provider.name()}">
-                        Check connection
-                    </button>
-                </article>
-            </section>
+        <section class="form-card">
+            <h2>Add or update your key</h2>
+            <p class="muted">Paste the API key from your chosen provider. IdeaSpec only checks that the key works.</p>
+            <form th:action="@{/settings/llm}" th:object="${saveLlmCredentialRequest}" method="post">
+                <label for="provider">AI helper</label>
+                <select id="provider" th:field="*{provider}" required>
+                    <option value="">Choose a helper</option>
+                    <option th:each="providerView : ${providers}"
+                            th:value="${providerView.provider}"
+                            th:text="${providerView.displayName}">OpenAI</option>
+                </select>
+                <p class="error" th:if="${#fields.hasErrors('provider')}" th:errors="*{provider}"></p>
 
-            <section class="form-card">
-                <h2>Add or update your key</h2>
-                <p class="muted">Paste the API key from your chosen provider. IdeaSpec only checks that the key works.</p>
-                <form th:action="@{/settings/llm}" th:object="${saveLlmCredentialRequest}" method="post">
-                    <label for="provider">AI helper</label>
-                    <select id="provider" th:field="*{provider}" required>
-                        <option value="">Choose a helper</option>
-                        <option th:each="providerView : ${providers}"
-                                th:value="${providerView.provider}"
-                                th:text="${providerView.displayName}">OpenAI</option>
-                    </select>
-                    <p class="error" th:if="${#fields.hasErrors('provider')}" th:errors="*{provider}"></p>
+                <label for="apiKey">API key</label>
+                <input id="apiKey" type="password" th:field="*{apiKey}" required autocomplete="off">
+                <p class="error" th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}"></p>
+                <p class="hint">Saving replaces any older key for that helper.</p>
 
-                    <label for="apiKey">API key</label>
-                    <input id="apiKey" type="password" th:field="*{apiKey}" required autocomplete="off">
-                    <p class="error" th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}"></p>
-                    <p class="hint">Saving replaces any older key for that helper.</p>
-
-                    <div class="actions">
-                        <button class="button" type="submit">Save and check</button>
-                    </div>
-                </form>
-            </section>
-        </div>
+                <div class="actions">
+                    <button class="button" type="submit">Save and check</button>
+                </div>
+            </form>
+        </section>
     </section>
 </main>
 <script th:src="@{/js/llm-settings.js}"></script>

@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.example.masterproject.logging.AppLog;
+import com.example.masterproject.model.entity.Answer;
 import com.example.masterproject.model.entity.ElicitationSession;
 import com.example.masterproject.model.entity.Project;
 import com.example.masterproject.model.entity.ProjectCategory;
@@ -24,8 +27,12 @@ import com.example.masterproject.repository.ProjectCategoryRepository;
 import com.example.masterproject.repository.ProjectRepository;
 import com.example.masterproject.repository.QuestionRepository;
 import com.example.masterproject.repository.RequirementSlotRepository;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -122,6 +129,82 @@ class ElicitationServiceFallbackTests {
 
         assertThat(view.overallIdeaStep()).isTrue();
         assertThat(view.suggestedAnswer()).isEqualTo(project.getInitialIdea());
+    }
+
+    @Test
+    void fastFinishWalksSequentialTopicsUntilComplete() {
+        TaxonomyCatalog.Definition goalDefinition = TaxonomyCatalog.require(RequirementCategory.GOAL);
+        ProjectCategory goal = categoryRow(RequirementCategory.GOAL, goalDefinition);
+        ProjectCategory title = categoryRow(
+                RequirementCategory.PROJECT_TITLE, TaxonomyCatalog.require(RequirementCategory.PROJECT_TITLE));
+        RequirementSlot goalSlot = slot(RequirementCategory.GOAL);
+        RequirementSlot titleSlot = slot(RequirementCategory.PROJECT_TITLE);
+        List<Question> storedQuestions = new ArrayList<>();
+        Map<Long, Answer> answers = new HashMap<>();
+        AtomicLong ids = new AtomicLong(1);
+
+        when(categoryRepository.findByProjectOrderByIdAsc(project)).thenReturn(List.of(goal, title));
+        when(categoryRepository.findByProjectAndCategory(project, RequirementCategory.GOAL))
+                .thenReturn(Optional.of(goal));
+        when(categoryRepository.findByProjectAndCategory(project, RequirementCategory.PROJECT_TITLE))
+                .thenReturn(Optional.of(title));
+        when(slotRepository.findByProjectOrderByCategoryAsc(project)).thenReturn(List.of(goalSlot, titleSlot));
+        when(slotRepository.findByProjectAndCategory(project, RequirementCategory.GOAL))
+                .thenReturn(Optional.of(goalSlot));
+        when(slotRepository.findByProjectAndCategory(project, RequirementCategory.PROJECT_TITLE))
+                .thenReturn(Optional.of(titleSlot));
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> {
+            Question question = invocation.getArgument(0);
+            if (question.getId() == null) {
+                question.setId(ids.getAndIncrement());
+            }
+            storedQuestions.removeIf(existing -> existing.getId().equals(question.getId()));
+            storedQuestions.add(question);
+            return question;
+        });
+        when(questionRepository.findBySessionOrderByQuestionOrderAsc(session))
+                .thenAnswer(invocation -> List.copyOf(storedQuestions));
+        when(questionRepository.countBySession(session)).thenAnswer(invocation -> (long) storedQuestions.size());
+        when(questionRepository.findFirstBySessionAndId(eq(session), anyLong()))
+                .thenAnswer(invocation -> storedQuestions.stream()
+                        .filter(question -> question.getId().equals(invocation.getArgument(1)))
+                        .findFirst());
+        when(answerRepository.existsByQuestion(any(Question.class)))
+                .thenAnswer(invocation -> answers.containsKey(((Question) invocation.getArgument(0)).getId()));
+        when(answerRepository.save(any(Answer.class))).thenAnswer(invocation -> {
+            Answer answer = invocation.getArgument(0);
+            answers.put(answer.getQuestion().getId(), answer);
+            return answer;
+        });
+        when(answerRepository.findByQuestion(any(Question.class)))
+                .thenAnswer(invocation ->
+                        Optional.ofNullable(answers.get(((Question) invocation.getArgument(0)).getId())));
+
+        ElicitationService.ElicitationView view = service.fastFinish(1L);
+
+        assertThat(view.complete()).isTrue();
+        assertThat(view.currentQuestion()).isNull();
+        assertThat(goal.getQuestionsAsked()).isEqualTo(goal.getMaxQuestions());
+        assertThat(title.getQuestionsAsked()).isEqualTo(1);
+        assertThat(titleSlot.getValue()).isNotBlank();
+    }
+
+    private ProjectCategory categoryRow(RequirementCategory category, TaxonomyCatalog.Definition definition) {
+        ProjectCategory categoryRow = new ProjectCategory();
+        categoryRow.setProject(project);
+        categoryRow.setCategory(category);
+        categoryRow.setMandatory(definition.mandatory());
+        categoryRow.setMaxQuestions(definition.maxQuestions());
+        return categoryRow;
+    }
+
+    private RequirementSlot slot(RequirementCategory category) {
+        RequirementSlot slot = new RequirementSlot();
+        slot.setProject(project);
+        slot.setCategory(category);
+        slot.setCompleteness(0.0);
+        slot.setAssessmentJson("{}");
+        return slot;
     }
 
     private void configureCategory(RequirementCategory category) {

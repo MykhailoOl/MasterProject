@@ -5,7 +5,7 @@ import com.example.masterproject.model.entity.RequirementSlot;
 import com.example.masterproject.model.enums.CriterionStatus;
 import com.example.masterproject.model.enums.RequirementCategory;
 import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +19,8 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class GuidedElicitationPlanner {
 
+    static final String PRUNED_KEY = "_pruned";
+
     private final ObjectMapper objectMapper;
 
     public GuidedElicitationPlanner(ObjectMapper objectMapper) {
@@ -27,60 +29,80 @@ public class GuidedElicitationPlanner {
 
     public Optional<ProjectCategory> nextCategory(
             List<ProjectCategory> categories,
-            List<RequirementSlot> slots) {
+            List<RequirementSlot> slots,
+            Map<RequirementCategory, List<String>> askedFocuses) {
         Map<RequirementCategory, RequirementSlot> slotsByCategory = new EnumMap<>(RequirementCategory.class);
         slots.forEach(slot -> slotsByCategory.put(slot.getCategory(), slot));
+        Map<RequirementCategory, List<String>> asked =
+                askedFocuses == null ? Map.of() : askedFocuses;
 
-        List<ProjectCategory> bodyCandidates = categories.stream()
-                .filter(category -> !TaxonomyCatalog.isClosing(category.getCategory()))
-                .filter(category -> category.getQuestionsAsked() < category.getMaxQuestions())
-                .filter(category -> completeness(category, slotsByCategory) < 0.95)
-                .toList();
-
-        List<ProjectCategory> foundationalCandidates = bodyCandidates.stream()
-                .filter(ProjectCategory::isMandatory)
-                .filter(category -> completeness(category, slotsByCategory) < 0.75)
-                .toList();
-
-        List<ProjectCategory> pool =
-                foundationalCandidates.isEmpty() ? bodyCandidates : foundationalCandidates;
-        if (!pool.isEmpty()) {
-            return pool.stream().min(categoryComparator(categories, slotsByCategory));
+        for (ProjectCategory category : categories) {
+            if (TaxonomyCatalog.isClosing(category.getCategory())) {
+                continue;
+            }
+            if (shouldContinue(
+                    category,
+                    slotsByCategory.get(category.getCategory()),
+                    asked.getOrDefault(category.getCategory(), List.of()))) {
+                return Optional.of(category);
+            }
         }
 
-        return categories.stream()
-                .filter(category -> TaxonomyCatalog.isClosing(category.getCategory()))
-                .filter(category -> category.getQuestionsAsked() < category.getMaxQuestions())
-                .filter(category -> completeness(category, slotsByCategory) < 0.95)
-                .findFirst();
+        for (ProjectCategory category : categories) {
+            if (!TaxonomyCatalog.isClosing(category.getCategory())) {
+                continue;
+            }
+            if (shouldContinueClosing(category, slotsByCategory.get(category.getCategory()))) {
+                return Optional.of(category);
+            }
+        }
+        return Optional.empty();
     }
 
-    public TaxonomyCatalog.Criterion nextCriterion(
+    public Optional<TaxonomyCatalog.Criterion> nextCriterion(
             TaxonomyCatalog.Definition definition,
             String assessmentJson,
-            Set<String> previouslyAsked) {
+            List<String> askedFocuses) {
+        List<String> asked = askedFocuses == null ? List.of() : askedFocuses;
         Map<String, CriterionStatus> statuses = statuses(definition, assessmentJson);
-        for (CriterionStatus target : List.of(CriterionStatus.MISSING, CriterionStatus.PARTIAL)) {
-            Optional<TaxonomyCatalog.Criterion> unasked = definition.criteria().stream()
-                    .filter(criterion -> statuses.get(criterion.id()) == target)
-                    .filter(criterion -> !previouslyAsked.contains(criterion.id()))
-                    .findFirst();
-            if (unasked.isPresent()) {
-                return unasked.get();
-            }
+        Set<String> pruned = Set.copyOf(prunedCriteria(assessmentJson));
+
+        Optional<TaxonomyCatalog.Criterion> unprobedMissing =
+                firstAskable(definition, statuses, pruned, asked, CriterionStatus.MISSING, 1);
+        if (unprobedMissing.isPresent()) {
+            return unprobedMissing;
         }
-        for (CriterionStatus target : List.of(CriterionStatus.MISSING, CriterionStatus.PARTIAL)) {
-            Optional<TaxonomyCatalog.Criterion> remaining = definition.criteria().stream()
-                    .filter(criterion -> statuses.get(criterion.id()) == target)
-                    .findFirst();
-            if (remaining.isPresent()) {
-                return remaining.get();
-            }
+        Optional<TaxonomyCatalog.Criterion> unprobedPartial =
+                firstAskable(definition, statuses, pruned, asked, CriterionStatus.PARTIAL, 1);
+        if (unprobedPartial.isPresent()) {
+            return unprobedPartial;
         }
+        Optional<TaxonomyCatalog.Criterion> blockingRetry =
+                definition.criteria().stream()
+                        .filter(criterion -> TaxonomyCatalog.isBlocking(definition.category(), criterion.id()))
+                        .filter(criterion -> !pruned.contains(criterion.id()))
+                        .filter(criterion -> statuses.getOrDefault(criterion.id(), CriterionStatus.MISSING)
+                                != CriterionStatus.COVERED)
+                        .filter(criterion -> probeCount(asked, criterion.id()) < 2)
+                        .findFirst();
+        if (blockingRetry.isPresent()) {
+            return blockingRetry;
+        }
+        return Optional.empty();
+    }
+
+    private Optional<TaxonomyCatalog.Criterion> firstAskable(
+            TaxonomyCatalog.Definition definition,
+            Map<String, CriterionStatus> statuses,
+            Set<String> pruned,
+            List<String> asked,
+            CriterionStatus target,
+            int maxProbes) {
         return definition.criteria().stream()
-                .filter(criterion -> !previouslyAsked.contains(criterion.id()))
-                .findFirst()
-                .orElseGet(() -> definition.criteria().getFirst());
+                .filter(criterion -> !pruned.contains(criterion.id()))
+                .filter(criterion -> statuses.getOrDefault(criterion.id(), CriterionStatus.MISSING) == target)
+                .filter(criterion -> probeCount(asked, criterion.id()) < maxProbes)
+                .findFirst();
     }
 
     public Map<String, CriterionStatus> statuses(
@@ -107,23 +129,63 @@ public class GuidedElicitationPlanner {
         return statuses;
     }
 
-    private Comparator<ProjectCategory> categoryComparator(
-            List<ProjectCategory> ordered,
-            Map<RequirementCategory, RequirementSlot> slotsByCategory) {
-        return Comparator
-                .comparingDouble((ProjectCategory category) -> completeness(category, slotsByCategory))
-                .thenComparingInt(ProjectCategory::getQuestionsAsked)
-                .thenComparing(category -> !category.isMandatory())
-                .thenComparingInt(ordered::indexOf);
+    public List<String> prunedCriteria(String assessmentJson) {
+        if (assessmentJson == null || assessmentJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode node = objectMapper.readTree(assessmentJson);
+            JsonNode pruned = node.get(PRUNED_KEY);
+            if (pruned == null || !pruned.isArray()) {
+                return List.of();
+            }
+            List<String> values = new ArrayList<>();
+            for (JsonNode item : pruned) {
+                String id = item.asText("").trim();
+                if (!id.isBlank() && !values.contains(id)) {
+                    values.add(id);
+                }
+            }
+            return values;
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 
-    private double completeness(
+    private boolean shouldContinue(
             ProjectCategory category,
-            Map<RequirementCategory, RequirementSlot> slotsByCategory) {
-        RequirementSlot slot = slotsByCategory.get(category.getCategory());
-        if (slot == null) {
-            return 0.0;
+            RequirementSlot slot,
+            List<String> askedFocuses) {
+        if (category.getQuestionsAsked() >= category.getMaxQuestions()) {
+            return false;
         }
-        return Math.max(0.0, Math.min(1.0, slot.getCompleteness()));
+        TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(category.getCategory());
+        boolean mandatoryCore = TaxonomyCatalog.mandatoryCore().stream()
+                .anyMatch(item -> item.category() == category.getCategory());
+        if (mandatoryCore && category.getQuestionsAsked() == 0) {
+            return true;
+        }
+        String assessmentJson = slot == null ? null : slot.getAssessmentJson();
+        return nextCriterion(definition, assessmentJson, askedFocuses).isPresent();
+    }
+
+    private boolean shouldContinueClosing(ProjectCategory category, RequirementSlot slot) {
+        if (category.getQuestionsAsked() >= category.getMaxQuestions()) {
+            return false;
+        }
+        if (slot == null || slot.getValue() == null || slot.getValue().isBlank()) {
+            return true;
+        }
+        return slot.getCompleteness() < 1.0;
+    }
+
+    private int probeCount(List<String> askedFocuses, String criterionId) {
+        int count = 0;
+        for (String asked : askedFocuses) {
+            if (criterionId.equals(asked)) {
+                count++;
+            }
+        }
+        return count;
     }
 }

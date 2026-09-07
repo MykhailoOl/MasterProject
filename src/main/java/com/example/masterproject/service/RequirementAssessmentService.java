@@ -11,6 +11,7 @@ import com.example.masterproject.model.enums.RequirementSource;
 import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
 import com.example.masterproject.repository.RequirementSlotRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -121,9 +122,17 @@ public class RequirementAssessmentService {
 
     @Transactional
     public void assessAnswer(Project project, RequirementSlot slot, Question question, String answerText) {
+        assessAnswer(project, slot, question, answerText, null);
+    }
+
+    @Transactional
+    public void assessAnswer(
+            Project project, RequirementSlot slot, Question question, String answerText, String categoryHistory) {
         TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(question.getCategory());
         Map<String, CriterionStatus> previous =
                 planner.statuses(definition, slot.getAssessmentJson());
+        List<String> pruned = new ArrayList<>(planner.prunedCriteria(slot.getAssessmentJson()));
+        String previousValue = slot.getValue();
         LlmRuntimeSettings settings = LlmRuntimeSettings.forProvider(project.getLlmProvider());
         String systemPrompt = """
                 You consolidate explicit stakeholder information into coding-ready requirements.
@@ -157,6 +166,9 @@ public class RequirementAssessmentService {
                 Previous criterion statuses:
                 %s
 
+                Full question and answer history for this topic:
+                %s
+
                 Latest clarification question:
                 %s
 
@@ -171,6 +183,7 @@ public class RequirementAssessmentService {
                 criteriaFor(definition),
                 blankAsNone(slot.getValue()),
                 blankAsNone(slot.getAssessmentJson()),
+                blankAsNone(categoryHistory),
                 question.getQuestionText(),
                 blankAsNone(question.getFocusCriterion()),
                 answerText);
@@ -189,14 +202,17 @@ public class RequirementAssessmentService {
             if (value.isBlank()) {
                 value = mergedValue(slot.getValue(), answerText);
             }
-            apply(slot, value, statuses);
+            pruneIfUnchanged(project, question, previous, previousValue, statuses, value, pruned);
+            apply(slot, value, statuses, pruned);
         } catch (Exception ex) {
             Map<String, CriterionStatus> statuses = new LinkedHashMap<>(previous);
             String focus = question.getFocusCriterion();
             if (focus != null && statuses.get(focus) == CriterionStatus.MISSING) {
                 statuses.put(focus, CriterionStatus.PARTIAL);
             }
-            apply(slot, mergedValue(slot.getValue(), answerText), statuses);
+            String value = mergedValue(slot.getValue(), answerText);
+            pruneIfUnchanged(project, question, previous, previousValue, statuses, value, pruned);
+            apply(slot, value, statuses, pruned);
             appLog.warn(
                     "ELICITATION",
                     "Requirement assessment returned unusable data for project #" + project.getId() + ".");
@@ -205,18 +221,76 @@ public class RequirementAssessmentService {
     }
 
     public String emptyAssessmentJson(TaxonomyCatalog.Definition definition) {
-        return assessmentJson(planner.statuses(definition, null));
+        return assessmentJson(planner.statuses(definition, null), List.of());
     }
 
     private void apply(
             RequirementSlot slot,
             String value,
             Map<String, CriterionStatus> statuses) {
+        apply(slot, value, statuses, List.of());
+    }
+
+    private void apply(
+            RequirementSlot slot,
+            String value,
+            Map<String, CriterionStatus> statuses,
+            List<String> pruned) {
         slot.setValue(boundedValue(value));
-        slot.setAssessmentJson(assessmentJson(statuses));
+        slot.setAssessmentJson(assessmentJson(statuses, pruned));
         slot.setCompleteness(completeness(statuses));
         slot.setSource(RequirementSource.USER);
         slot.setUpdatedAt(Instant.now());
+    }
+
+    private void pruneIfUnchanged(
+            Project project,
+            Question question,
+            Map<String, CriterionStatus> previous,
+            String previousValue,
+            Map<String, CriterionStatus> statuses,
+            String value,
+            List<String> pruned) {
+        String focus = question.getFocusCriterion();
+        if (focus == null || focus.isBlank()) {
+            return;
+        }
+        int beforeRank = rank(previous.get(focus));
+        int afterRank = rank(statuses.get(focus));
+        if (afterRank > beforeRank || atomCount(value) > atomCount(previousValue)) {
+            return;
+        }
+        if (!pruned.contains(focus)) {
+            pruned.add(focus);
+            appLog.info(
+                    "ELICITATION",
+                    "Project #" + project.getId() + " gate-pruned " + question.getCategory()
+                            + " / " + focus + " because the answer added no new requirement detail.");
+        }
+    }
+
+    private int rank(CriterionStatus status) {
+        if (status == null) {
+            return 0;
+        }
+        return switch (status) {
+            case MISSING -> 0;
+            case PARTIAL -> 1;
+            case COVERED -> 2;
+        };
+    }
+
+    private int atomCount(String value) {
+        if (value == null || value.isBlank()) {
+            return 0;
+        }
+        int count = 0;
+        for (String part : value.split("\\|")) {
+            if (!part.isBlank()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private double completeness(Map<String, CriterionStatus> statuses) {
@@ -294,9 +368,12 @@ public class RequirementAssessmentService {
                 .collect(Collectors.joining("\n"));
     }
 
-    private String assessmentJson(Map<String, CriterionStatus> statuses) {
-        Map<String, String> values = new LinkedHashMap<>();
+    private String assessmentJson(Map<String, CriterionStatus> statuses, List<String> pruned) {
+        Map<String, Object> values = new LinkedHashMap<>();
         statuses.forEach((key, value) -> values.put(key, value.name()));
+        if (pruned != null && !pruned.isEmpty()) {
+            values.put(GuidedElicitationPlanner.PRUNED_KEY, pruned);
+        }
         try {
             return objectMapper.writeValueAsString(values);
         } catch (Exception ex) {

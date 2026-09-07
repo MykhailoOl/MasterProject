@@ -20,9 +20,10 @@ import com.example.masterproject.repository.QuestionRepository;
 import com.example.masterproject.repository.RequirementSlotRepository;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,13 +104,19 @@ public class ElicitationService {
             return buildView(project, session, question);
         }
 
-        Optional<ProjectCategory> nextCategory = findNextCategory(project);
+        Optional<ProjectCategory> nextCategory = findNextCategory(project, session);
         if (nextCategory.isEmpty()) {
             markCompleted(project, session);
             return buildView(project, session, null);
         }
 
-        Question question = generateQuestion(project, session, nextCategory.get());
+        ProjectCategory categoryRow = nextCategory.get();
+        appLog.info(
+                "ELICITATION",
+                "Project #" + project.getId() + " continues with " + categoryRow.getCategory()
+                        + " (" + categoryRow.getQuestionsAsked() + "/" + categoryRow.getMaxQuestions()
+                        + " questions asked).");
+        Question question = generateQuestion(project, session, categoryRow);
         appLog.info(
                 "ELICITATION",
                 "Project #" + project.getId() + " asked a " + question.getCategory() + " question.");
@@ -175,6 +182,11 @@ public class ElicitationService {
             if (answer == null || answer.isBlank()) {
                 throw new IllegalStateException("Fast finish could not build an answer for the current question.");
             }
+            appLog.info(
+                    "ELICITATION",
+                    "Fast finish answering " + question.getCategory()
+                            + (question.getFocusCriterion() == null ? "" : " / " + question.getFocusCriterion())
+                            + " for project #" + projectId + ".");
             view = submitAnswer(projectId, question.getId(), answer);
         }
         appLog.info("ELICITATION", "Fast finish finished for project #" + projectId + " after " + guard + " answers.");
@@ -217,12 +229,17 @@ public class ElicitationService {
         List<Question> categoryQuestions = questionRepository.findBySessionOrderByQuestionOrderAsc(session).stream()
                 .filter(question -> question.getCategory() == categoryRow.getCategory())
                 .toList();
-        Set<String> previouslyAsked = categoryQuestions.stream()
+        List<String> previouslyAsked = categoryQuestions.stream()
                 .map(Question::getFocusCriterion)
                 .filter(value -> value != null && !value.isBlank())
-                .collect(Collectors.toSet());
-        TaxonomyCatalog.Criterion focus =
-                guidedElicitationPlanner.nextCriterion(definition, slot.getAssessmentJson(), previouslyAsked);
+                .toList();
+        TaxonomyCatalog.Criterion focus = guidedElicitationPlanner
+                .nextCriterion(definition, slot.getAssessmentJson(), previouslyAsked)
+                .orElseGet(() -> definition.criteria().getFirst());
+        appLog.info(
+                "ELICITATION",
+                "Project #" + project.getId() + " will ask " + definition.displayName()
+                        + " about " + focus.id() + ".");
         String knownContext = buildKnownContext(project, categoryRow.getCategory());
         String categoryHistory = buildCategoryHistory(categoryQuestions);
         String criteria = definition.criteria().stream()
@@ -549,7 +566,12 @@ public class ElicitationService {
         RequirementSlot slot = requirementSlotRepository
                 .findByProjectAndCategory(project, question.getCategory())
                 .orElseThrow();
-        requirementAssessmentService.assessAnswer(project, slot, question, answerText);
+        ElicitationSession session = question.getSession();
+        List<Question> categoryQuestions = questionRepository.findBySessionOrderByQuestionOrderAsc(session).stream()
+                .filter(item -> item.getCategory() == question.getCategory())
+                .toList();
+        String categoryHistory = buildCategoryHistory(categoryQuestions);
+        requirementAssessmentService.assessAnswer(project, slot, question, answerText, categoryHistory);
     }
 
     private String buildKnownContext(Project project) {
@@ -573,8 +595,7 @@ public class ElicitationService {
                         .orElse(""))
                 .filter(value -> !value.isBlank())
                 .toList();
-        int start = Math.max(0, turns.size() - 3);
-        return String.join("\n\n", turns.subList(start, turns.size()));
+        return String.join("\n\n", turns);
     }
 
     private List<String> fallbackTitleChoices(Project project) {
@@ -601,11 +622,24 @@ public class ElicitationService {
         return cleaned.substring(0, max).trim() + "...";
     }
 
-    private Optional<ProjectCategory> findNextCategory(Project project) {
+    private Optional<ProjectCategory> findNextCategory(Project project, ElicitationSession session) {
         List<ProjectCategory> categories = projectCategoryRepository.findByProjectOrderByIdAsc(project);
         List<RequirementSlot> slots =
                 requirementSlotRepository.findByProjectOrderByCategoryAsc(project);
-        return guidedElicitationPlanner.nextCategory(categories, slots);
+        Map<RequirementCategory, List<String>> askedFocuses = new EnumMap<>(RequirementCategory.class);
+        for (Question question : questionRepository.findBySessionOrderByQuestionOrderAsc(session)) {
+            String focus = question.getFocusCriterion();
+            if (focus == null || focus.isBlank()) {
+                continue;
+            }
+            askedFocuses.computeIfAbsent(question.getCategory(), key -> new ArrayList<>()).add(focus);
+        }
+        Optional<ProjectCategory> next =
+                guidedElicitationPlanner.nextCategory(categories, slots, askedFocuses);
+        if (next.isEmpty()) {
+            appLog.info("ELICITATION", "Project #" + project.getId() + " has no remaining elicitation topics.");
+        }
+        return next;
     }
 
     private Optional<Question> findUnansweredQuestion(ElicitationSession session) {
@@ -641,7 +675,7 @@ public class ElicitationService {
         List<ProjectCategory> categories = projectCategoryRepository.findByProjectOrderByIdAsc(project);
         int totalBudget = categories.stream().mapToInt(ProjectCategory::getMaxQuestions).sum();
         int answeredCount = categories.stream().mapToInt(ProjectCategory::getQuestionsAsked).sum();
-        boolean complete = question == null && findNextCategory(project).isEmpty();
+        boolean complete = question == null && findNextCategory(project, session).isEmpty();
         List<String> choices = List.of();
         String suggestedAnswer = null;
         String answerExample = null;

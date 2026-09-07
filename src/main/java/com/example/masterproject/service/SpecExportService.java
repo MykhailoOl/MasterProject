@@ -5,6 +5,7 @@ import com.example.masterproject.model.entity.ExportArtifact;
 import com.example.masterproject.model.entity.Project;
 import com.example.masterproject.model.entity.ProjectCategory;
 import com.example.masterproject.model.entity.RequirementSlot;
+import com.example.masterproject.model.enums.CriterionStatus;
 import com.example.masterproject.model.enums.ExportType;
 import com.example.masterproject.model.enums.RequirementCategory;
 import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
@@ -27,6 +28,7 @@ public class SpecExportService {
     private final RequirementSlotRepository requirementSlotRepository;
     private final ExportArtifactRepository exportArtifactRepository;
     private final SpecEnrichmentService specEnrichmentService;
+    private final GuidedElicitationPlanner guidedElicitationPlanner;
     private final AppLog appLog;
 
     public SpecExportService(
@@ -35,12 +37,14 @@ public class SpecExportService {
             RequirementSlotRepository requirementSlotRepository,
             ExportArtifactRepository exportArtifactRepository,
             SpecEnrichmentService specEnrichmentService,
+            GuidedElicitationPlanner guidedElicitationPlanner,
             AppLog appLog) {
         this.projectService = projectService;
         this.projectCategoryRepository = projectCategoryRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.exportArtifactRepository = exportArtifactRepository;
         this.specEnrichmentService = specEnrichmentService;
+        this.guidedElicitationPlanner = guidedElicitationPlanner;
         this.appLog = appLog;
     }
 
@@ -83,6 +87,7 @@ public class SpecExportService {
             if (slot == null || slot.getValue() == null || slot.getValue().isBlank()) {
                 markdown.append("- Not specified\n");
                 openDecisions.add(definition.displayName() + " was selected but not filled in.");
+                appendCriterionOpenDecisions(openDecisions, definition, slot);
             } else {
                 for (String line : slot.getValue().split("\\r?\\n|\\|")) {
                     String cleaned = line.trim();
@@ -90,9 +95,7 @@ public class SpecExportService {
                         markdown.append("- ").append(cleaned).append("\n");
                     }
                 }
-                if (slot.getCompleteness() < 0.7) {
-                    openDecisions.add(definition.displayName() + " still looks incomplete.");
-                }
+                appendCriterionOpenDecisions(openDecisions, definition, slot);
             }
 
             if (category.getCategory() == RequirementCategory.USERS_AND_ROLES) {
@@ -149,6 +152,19 @@ public class SpecExportService {
         ExportArtifact saved = exportArtifactRepository.save(artifact);
         appLog.info("SPEC", "SPEC.md generated for project #" + project.getId() + ".");
         return saved;
+    }
+
+    private void appendCriterionOpenDecisions(
+            List<String> openDecisions, TaxonomyCatalog.Definition definition, RequirementSlot slot) {
+        String assessmentJson = slot == null ? null : slot.getAssessmentJson();
+        Map<String, CriterionStatus> statuses = guidedElicitationPlanner.statuses(definition, assessmentJson);
+        for (TaxonomyCatalog.Criterion criterion : definition.criteria()) {
+            CriterionStatus status = statuses.getOrDefault(criterion.id(), CriterionStatus.MISSING);
+            if (status != CriterionStatus.COVERED) {
+                openDecisions.add(
+                        definition.displayName() + " / " + criterion.id() + " is " + status.name() + ".");
+            }
+        }
     }
 
     @Transactional(readOnly = true)

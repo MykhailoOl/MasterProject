@@ -175,6 +175,39 @@ class RequirementAssessmentServiceTests {
         verify(slotRepository).save(slot);
     }
 
+    @Test
+    void unchangedAnswerGatePrunesTheFocusedCriterion() throws Exception {
+        Question question = question("success");
+        slot.setValue("Students miss deadlines.");
+        slot.setAssessmentJson(
+                """
+                {"problem":"COVERED","outcome":"COVERED","success":"PARTIAL","priority":"COVERED"}
+                """);
+        when(llmCredentialService.complete(
+                        eq(LlmProvider.OPENAI),
+                        anyString(),
+                        anyString(),
+                        anyDouble(),
+                        anyInt()))
+                .thenReturn("""
+                        {
+                          "value": "Students miss deadlines.",
+                          "statuses": {
+                            "problem": "COVERED",
+                            "outcome": "COVERED",
+                            "success": "PARTIAL",
+                            "priority": "COVERED"
+                          }
+                        }
+                        """);
+
+        service.assessAnswer(project, slot, question, "Still unsure.", "Question: How will you know it worked?\nAnswer: Still unsure.");
+
+        JsonNode assessment = objectMapper.readTree(slot.getAssessmentJson());
+        assertThat(assessment.get("_pruned").toString()).contains("success");
+        assertThat(assessment.get("success").asText()).isEqualTo("PARTIAL");
+    }
+
     private Question question(String focusCriterion) {
         ElicitationSession session = new ElicitationSession();
         session.setProject(project);

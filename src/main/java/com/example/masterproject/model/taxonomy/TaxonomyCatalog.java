@@ -421,4 +421,28 @@ public final class TaxonomyCatalog {
         return category == RequirementCategory.PROJECT_TITLE
                 || category == RequirementCategory.OVERALL_IDEA;
     }
+
+    public static boolean isBlocking(RequirementCategory category, String criterionId) {
+        if (criterionId == null || criterionId.isBlank()) {
+            return false;
+        }
+        return blockingIds(category).contains(criterionId);
+    }
+
+    public static List<String> blockingIds(RequirementCategory category) {
+        return switch (category) {
+            case GOAL -> List.of("problem", "outcome");
+            case USERS_AND_ROLES -> List.of("customers", "operators");
+            case CORE_FEATURES -> List.of("capabilities", "workflow");
+            case PLATFORM -> List.of("delivery_channel");
+            case NON_GOALS -> List.of("excluded_capabilities");
+            case DATA_ENTITIES -> List.of("entities_attributes");
+            case AUTHENTICATION -> List.of("identity");
+            case INTEGRATIONS -> List.of("external_systems");
+            case ERROR_HANDLING -> List.of("failure_scenarios");
+            case TESTING -> List.of("acceptance_criteria");
+            case DEPLOYMENT -> List.of("environments");
+            case PROJECT_TITLE, OVERALL_IDEA -> List.of();
+        };
+    }
 }

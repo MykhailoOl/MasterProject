@@ -7,7 +7,7 @@ import com.example.masterproject.model.entity.RequirementSlot;
 import com.example.masterproject.model.enums.RequirementCategory;
 import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -17,51 +17,103 @@ class GuidedElicitationPlannerTests {
             new GuidedElicitationPlanner(new ObjectMapper());
 
     @Test
-    void completesFoundationalCategoriesBeforeOptionalCategories() {
-        ProjectCategory goal = category(RequirementCategory.GOAL, true, 0, 2);
-        ProjectCategory users = category(RequirementCategory.USERS_AND_ROLES, true, 0, 2);
-        ProjectCategory features = category(RequirementCategory.CORE_FEATURES, true, 0, 4);
-        ProjectCategory platform = category(RequirementCategory.PLATFORM, true, 0, 2);
-        ProjectCategory integrations = category(RequirementCategory.INTEGRATIONS, false, 0, 2);
+    void staysOnTheCurrentTaxonomyInsteadOfHoppingToAWeakerOne() {
+        ProjectCategory goal = category(RequirementCategory.GOAL, true, 1, 5);
+        ProjectCategory users = category(RequirementCategory.USERS_AND_ROLES, true, 0, 5);
 
         var selected = planner.nextCategory(
-                List.of(goal, users, features, platform, integrations),
+                List.of(goal, users),
                 List.of(
-                        slot(RequirementCategory.GOAL, 0.5),
-                        slot(RequirementCategory.USERS_AND_ROLES, 0.75),
-                        slot(RequirementCategory.CORE_FEATURES, 0.75),
-                        slot(RequirementCategory.PLATFORM, 0.75),
-                        slot(RequirementCategory.INTEGRATIONS, 0.0)));
+                        slot(
+                                RequirementCategory.GOAL,
+                                0.25,
+                                """
+                                {"problem":"PARTIAL","outcome":"MISSING","success":"MISSING","priority":"MISSING"}
+                                """),
+                        slot(RequirementCategory.USERS_AND_ROLES, 0.0, null)),
+                Map.of(RequirementCategory.GOAL, List.of("problem")));
 
         assertThat(selected).contains(goal);
     }
 
     @Test
-    void selectsLargestRemainingGapAfterFoundationsAreUsable() {
-        ProjectCategory goal = category(RequirementCategory.GOAL, true, 1, 2);
-        ProjectCategory users = category(RequirementCategory.USERS_AND_ROLES, true, 1, 2);
-        ProjectCategory integrations = category(RequirementCategory.INTEGRATIONS, false, 0, 2);
-
-        var selected = planner.nextCategory(
-                List.of(goal, users, integrations),
-                List.of(
-                        slot(RequirementCategory.GOAL, 0.75),
-                        slot(RequirementCategory.USERS_AND_ROLES, 0.75),
-                        slot(RequirementCategory.INTEGRATIONS, 0.0)));
-
-        assertThat(selected).contains(integrations);
-    }
-
-    @Test
-    void skipsCoveredBodyCategoriesAndLeavesClosingQuestionsUntilLast() {
-        ProjectCategory goal = category(RequirementCategory.GOAL, true, 0, 2);
+    void asksMandatoryCoreEvenWhenExtractionLooksCovered() {
+        ProjectCategory goal = category(RequirementCategory.GOAL, true, 0, 5);
         ProjectCategory title = category(RequirementCategory.PROJECT_TITLE, true, 0, 1);
 
         var selected = planner.nextCategory(
                 List.of(goal, title),
                 List.of(
-                        slot(RequirementCategory.GOAL, 1.0),
-                        slot(RequirementCategory.PROJECT_TITLE, 0.0)));
+                        slot(
+                                RequirementCategory.GOAL,
+                                1.0,
+                                """
+                                {"problem":"COVERED","outcome":"COVERED","success":"COVERED","priority":"COVERED"}
+                                """),
+                        slot(RequirementCategory.PROJECT_TITLE, 0.0, null)),
+                Map.of());
+
+        assertThat(selected).contains(goal);
+    }
+
+    @Test
+    void leavesACoveredCoreAfterTheForcedFirstQuestion() {
+        ProjectCategory goal = category(RequirementCategory.GOAL, true, 1, 5);
+        ProjectCategory title = category(RequirementCategory.PROJECT_TITLE, true, 0, 1);
+
+        var selected = planner.nextCategory(
+                List.of(goal, title),
+                List.of(
+                        slot(
+                                RequirementCategory.GOAL,
+                                1.0,
+                                """
+                                {"problem":"COVERED","outcome":"COVERED","success":"COVERED","priority":"COVERED"}
+                                """),
+                        slot(RequirementCategory.PROJECT_TITLE, 0.0, null)),
+                Map.of(RequirementCategory.GOAL, List.of("problem")));
+
+        assertThat(selected).contains(title);
+    }
+
+    @Test
+    void finishesCoreTopicsBeforeOptionalTopics() {
+        ProjectCategory goal = category(RequirementCategory.GOAL, true, 1, 5);
+        ProjectCategory users = category(RequirementCategory.USERS_AND_ROLES, true, 0, 5);
+        ProjectCategory integrations = category(RequirementCategory.INTEGRATIONS, false, 0, 5);
+
+        var selected = planner.nextCategory(
+                List.of(goal, users, integrations),
+                List.of(
+                        slot(
+                                RequirementCategory.GOAL,
+                                1.0,
+                                """
+                                {"problem":"COVERED","outcome":"COVERED","success":"COVERED","priority":"COVERED"}
+                                """),
+                        slot(RequirementCategory.USERS_AND_ROLES, 0.0, null),
+                        slot(RequirementCategory.INTEGRATIONS, 0.0, null)),
+                Map.of(RequirementCategory.GOAL, List.of("problem")));
+
+        assertThat(selected).contains(users);
+    }
+
+    @Test
+    void skipsCoveredOptionalTopicsWithoutForcingAQuestion() {
+        ProjectCategory integrations = category(RequirementCategory.INTEGRATIONS, false, 0, 5);
+        ProjectCategory title = category(RequirementCategory.PROJECT_TITLE, true, 0, 1);
+
+        var selected = planner.nextCategory(
+                List.of(integrations, title),
+                List.of(
+                        slot(
+                                RequirementCategory.INTEGRATIONS,
+                                1.0,
+                                """
+                                {"external_systems":"COVERED","data_exchange":"COVERED","contract_security":"COVERED","failure_limits":"COVERED"}
+                                """),
+                        slot(RequirementCategory.PROJECT_TITLE, 0.0, null)),
+                Map.of());
 
         assertThat(selected).contains(title);
     }
@@ -70,28 +122,80 @@ class GuidedElicitationPlannerTests {
     void targetsAnUnaskedMissingCriterionBeforeRepeatingAQuestion() {
         TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.GOAL);
 
-        TaxonomyCatalog.Criterion selected = planner.nextCriterion(
+        var selected = planner.nextCriterion(
                 definition,
                 """
                 {"problem":"MISSING","outcome":"MISSING","success":"PARTIAL","priority":"COVERED"}
                 """,
-                Set.of("problem"));
+                List.of("problem"));
 
-        assertThat(selected.id()).isEqualTo("outcome");
+        assertThat(selected).isPresent();
+        assertThat(selected.get().id()).isEqualTo("outcome");
+    }
+
+    @Test
+    void doesNotReaskAProbedSecondaryPartial() {
+        TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.GOAL);
+
+        var selected = planner.nextCriterion(
+                definition,
+                """
+                {"problem":"COVERED","outcome":"COVERED","success":"PARTIAL","priority":"COVERED"}
+                """,
+                List.of("success"));
+
+        assertThat(selected).isEmpty();
+    }
+
+    @Test
+    void allowsASecondProbeOnABlockingGapThenStops() {
+        TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.GOAL);
+
+        var secondProbe = planner.nextCriterion(
+                definition,
+                """
+                {"problem":"PARTIAL","outcome":"COVERED","success":"COVERED","priority":"COVERED"}
+                """,
+                List.of("problem"));
+        var afterBudget = planner.nextCriterion(
+                definition,
+                """
+                {"problem":"PARTIAL","outcome":"COVERED","success":"COVERED","priority":"COVERED"}
+                """,
+                List.of("problem", "problem"));
+
+        assertThat(secondProbe).isPresent();
+        assertThat(secondProbe.get().id()).isEqualTo("problem");
+        assertThat(afterBudget).isEmpty();
+    }
+
+    @Test
+    void skipsGatePrunedCriteria() {
+        TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.GOAL);
+
+        var selected = planner.nextCriterion(
+                definition,
+                """
+                {"problem":"COVERED","outcome":"COVERED","success":"PARTIAL","priority":"COVERED","_pruned":["success"]}
+                """,
+                List.of());
+
+        assertThat(selected).isEmpty();
     }
 
     @Test
     void usersAndRolesPreferUnaskedCustomerStaffAndManagerCriteria() {
         TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(RequirementCategory.USERS_AND_ROLES);
 
-        TaxonomyCatalog.Criterion selected = planner.nextCriterion(
+        var selected = planner.nextCriterion(
                 definition,
                 """
                 {"customers":"COVERED","operators":"MISSING","managers":"MISSING","permissions":"MISSING","usage_context":"MISSING"}
                 """,
-                Set.of());
+                List.of());
 
-        assertThat(selected.id()).isEqualTo("operators");
+        assertThat(selected).isPresent();
+        assertThat(selected.get().id()).isEqualTo("operators");
     }
 
     private ProjectCategory category(
@@ -107,10 +211,11 @@ class GuidedElicitationPlannerTests {
         return row;
     }
 
-    private RequirementSlot slot(RequirementCategory category, double completeness) {
+    private RequirementSlot slot(RequirementCategory category, double completeness, String assessmentJson) {
         RequirementSlot slot = new RequirementSlot();
         slot.setCategory(category);
         slot.setCompleteness(completeness);
+        slot.setAssessmentJson(assessmentJson);
         return slot;
     }
 }

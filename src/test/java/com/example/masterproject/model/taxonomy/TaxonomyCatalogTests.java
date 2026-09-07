@@ -22,6 +22,9 @@ class TaxonomyCatalogTests {
                                 assertThat(criterion.fallbackQuestion()).isNotBlank();
                                 assertThat(criterion.answerExample()).isNotBlank();
                             });
+                    assertThat(TaxonomyCatalog.blockingIds(definition.category())).isNotEmpty();
+                    assertThat(TaxonomyCatalog.blockingIds(definition.category()))
+                            .allMatch(id -> TaxonomyCatalog.criterion(definition.category(), id).isPresent());
                     assertThat(definition.criteria().stream()
                                     .map(TaxonomyCatalog.Criterion::id)
                                     .toList())
