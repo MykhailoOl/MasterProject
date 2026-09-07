@@ -89,7 +89,7 @@ public class RequirementAssessmentService {
                     userPrompt,
                     0.0,
                     settings.elicitationMaxTokens());
-        } catch (IllegalStateException ex) {
+        } catch (Exception ex) {
             appLog.warn(
                     "ELICITATION",
                     "Initial requirement extraction was skipped for project #" + project.getId()

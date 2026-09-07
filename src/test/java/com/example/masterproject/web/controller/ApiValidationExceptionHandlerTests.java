@@ -45,4 +45,13 @@ class ApiValidationExceptionHandlerTests {
         assertThat(response.getBody()).containsEntry("status", 409);
         assertThat(response.getBody()).containsEntry("error", "The project request could not be completed.");
     }
+
+    @Test
+    void unexpectedFailuresReturnUnavailable() {
+        ResponseEntity<Map<String, Object>> response =
+                handler.unexpected(new RuntimeException("connection reset"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).containsEntry("error", "The request could not be completed. Please try again.");
+    }
 }

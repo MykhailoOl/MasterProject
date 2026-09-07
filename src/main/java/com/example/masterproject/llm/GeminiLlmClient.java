@@ -160,9 +160,20 @@ public class GeminiLlmClient implements LlmClient {
                 .retrieve()
                 .body(String.class);
         JsonNode root = objectMapper.readTree(response);
-        JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
+        String blockReason = root.path("promptFeedback").path("blockReason").asText("");
+        if (!blockReason.isBlank()) {
+            throw new IllegalStateException("Gemini blocked this request. Please rephrase and try again.");
+        }
+        JsonNode candidate = root.path("candidates").path(0);
+        String finishReason = candidate.path("finishReason").asText("");
+        if ("SAFETY".equalsIgnoreCase(finishReason)
+                || "PROHIBITED_CONTENT".equalsIgnoreCase(finishReason)
+                || "BLOCKLIST".equalsIgnoreCase(finishReason)) {
+            throw new IllegalStateException("Gemini blocked this request. Please rephrase and try again.");
+        }
+        JsonNode parts = candidate.path("content").path("parts");
         if (!parts.isArray() || parts.isEmpty()) {
-            throw new IllegalStateException("Gemini returned an empty response");
+            throw new IllegalStateException("Gemini could not generate a response. Please try again.");
         }
         StringBuilder text = new StringBuilder();
         for (JsonNode part : parts) {
@@ -171,7 +182,7 @@ public class GeminiLlmClient implements LlmClient {
             }
         }
         if (text.isEmpty()) {
-            throw new IllegalStateException("Gemini returned no text content");
+            throw new IllegalStateException("Gemini could not generate a response. Please try again.");
         }
         return text.toString().trim();
     }

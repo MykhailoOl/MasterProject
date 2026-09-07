@@ -29,6 +29,9 @@ public class SimplifyApiController {
             return ResponseEntity.ok(Map.of("simplifiedText", simplified));
         } catch (IllegalArgumentException | IllegalStateException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(503)
+                    .body(Map.of("error", "The helper could not simplify that text. Please try again."));
         }
     }
 }

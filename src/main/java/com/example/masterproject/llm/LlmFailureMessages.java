@@ -2,42 +2,55 @@ package com.example.masterproject.llm;
 
 import org.springframework.web.client.RestClientResponseException;
 
-final class LlmFailureMessages {
+public final class LlmFailureMessages {
 
     private LlmFailureMessages() {
     }
 
-    static String forHttp(String provider, RestClientResponseException error) {
+    public static String forHttp(String provider, RestClientResponseException error) {
         int status = error.getStatusCode().value();
         String body = body(error);
         if (status == 401) {
             return provider + " API key was rejected.";
         }
+        if (status == 429) {
+            return provider + " is rate limited or over quota. Please try again in a minute.";
+        }
         if (status == 402 || isCreditOrLicense(body)) {
             return provider + " could not generate a response because this account has no available credits.";
         }
-        if (status == 429) {
-            return provider + " is rate limited. Please try again.";
+        if (status == 403) {
+            return provider + " rejected this request. Please check the API key and try again.";
         }
-        if (status == 408 || status >= 500) {
+        if (status == 400 || status == 422) {
+            if (containsAny(body, "safety", "blocked", "prohibited", "content filter")) {
+                return provider + " blocked this request. Please rephrase and try again.";
+            }
+            return provider + " could not generate a response. Please try again.";
+        }
+        if (status == 408 || status == 529 || status >= 500) {
             return provider + " is temporarily unavailable. Please try again.";
         }
         return provider + " could not generate a response. Please try again.";
     }
 
-    static boolean isCreditOrLicense(RestClientResponseException error) {
-        return error.getStatusCode().value() == 402 || isCreditOrLicense(body(error));
+    public static boolean isCreditOrLicense(RestClientResponseException error) {
+        int status = error.getStatusCode().value();
+        if (status == 429) {
+            return false;
+        }
+        return status == 402 || isCreditOrLicense(body(error));
     }
 
-    static boolean canFallbackModel(RestClientResponseException error) {
+    public static boolean canFallbackModel(RestClientResponseException error) {
         int status = error.getStatusCode().value();
-        if (status == 401 || status == 402 || isCreditOrLicense(error)) {
+        if (status == 401 || status == 402 || status == 429 || isCreditOrLicense(error)) {
             return false;
         }
         String body = body(error);
         return status == 404
                 || status == 408
-                || status == 429
+                || status == 529
                 || status >= 500
                 || body.contains("not found")
                 || body.contains("unknown model")
@@ -50,12 +63,10 @@ final class LlmFailureMessages {
                 body,
                 "credit",
                 "license",
-                "billing",
-                "quota",
-                "insufficient",
                 "spend limit",
                 "payment required",
-                "no available");
+                "no available",
+                "billing hard");
     }
 
     private static boolean containsAny(String body, String... tokens) {

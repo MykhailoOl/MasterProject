@@ -54,6 +54,12 @@ public class ApiValidationExceptionHandler {
         return error(HttpStatus.CONFLICT, "The project request could not be completed.");
     }
 
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> unexpected(RuntimeException exception) {
+        appLog.error("PROJECT", "Project API request failed unexpectedly", exception);
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "The request could not be completed. Please try again.");
+    }
+
     private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", status.value());

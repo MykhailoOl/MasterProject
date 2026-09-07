@@ -120,9 +120,13 @@ public class AnthropicLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        JsonNode content = objectMapper.readTree(response).path("content");
+        JsonNode root = objectMapper.readTree(response);
+        if ("refusal".equalsIgnoreCase(root.path("stop_reason").asText())) {
+            throw new IllegalStateException("Anthropic blocked this request. Please rephrase and try again.");
+        }
+        JsonNode content = root.path("content");
         if (!content.isArray() || content.isEmpty()) {
-            throw new IllegalStateException("Anthropic returned an empty response");
+            throw new IllegalStateException("Anthropic could not generate a response. Please try again.");
         }
         StringBuilder text = new StringBuilder();
         for (JsonNode block : content) {
@@ -131,7 +135,7 @@ public class AnthropicLlmClient implements LlmClient {
             }
         }
         if (text.isEmpty()) {
-            throw new IllegalStateException("Anthropic returned no text content");
+            throw new IllegalStateException("Anthropic could not generate a response. Please try again.");
         }
         return text.toString().trim();
     }

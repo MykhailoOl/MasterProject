@@ -55,27 +55,33 @@ public class GrokLlmClient implements LlmClient {
 
     @Override
     public String complete(String apiKey, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
-        for (String model : models()) {
-            try {
-                return completeChat(apiKey, model, systemPrompt, userPrompt, temperature, maxTokens);
-            } catch (RestClientResponseException ex) {
-                if (!LlmFailureMessages.canFallbackModel(ex)) {
-                    throw completionFailure(ex, "POST /v1/chat/completions");
-                }
-                appLog.warn(
-                        "LLM",
-                        LlmErrorDetails.http(
-                                "Grok",
-                                "completion request for model " + model,
-                                "POST /v1/chat/completions",
-                                ex)
-                                + " | action=trying another Grok model");
-            }
-        }
+        RestClientResponseException last = null;
         try {
-            return completeResponses(apiKey, settings.model(), systemPrompt, userPrompt, temperature, maxTokens);
-        } catch (RestClientResponseException ex) {
-            throw completionFailure(ex, "POST /v1/responses");
+            for (String model : models()) {
+                try {
+                    return completeChat(apiKey, model, systemPrompt, userPrompt, temperature, maxTokens);
+                } catch (RestClientResponseException ex) {
+                    last = ex;
+                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                        throw completionFailure(ex, "POST /v1/chat/completions");
+                    }
+                    appLog.warn(
+                            "LLM",
+                            LlmErrorDetails.http(
+                                    "Grok",
+                                    "completion request for model " + model,
+                                    "POST /v1/chat/completions",
+                                    ex)
+                                    + " | action=trying another Grok model");
+                }
+            }
+            try {
+                return completeResponses(apiKey, settings.model(), systemPrompt, userPrompt, temperature, maxTokens);
+            } catch (RestClientResponseException ex) {
+                throw completionFailure(last == null ? ex : last, "POST /v1/responses");
+            }
+        } catch (IllegalStateException ex) {
+            throw ex;
         } catch (Exception ex) {
             appLog.error(
                     "LLM",
@@ -114,9 +120,13 @@ public class GrokLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        JsonNode content = objectMapper.readTree(response).path("choices").path(0).path("message").path("content");
+        JsonNode choice = objectMapper.readTree(response).path("choices").path(0);
+        if ("content_filter".equalsIgnoreCase(choice.path("finish_reason").asText())) {
+            throw new IllegalStateException("Grok blocked this request. Please rephrase and try again.");
+        }
+        JsonNode content = choice.path("message").path("content");
         if (content.isMissingNode() || content.asText().isBlank()) {
-            throw new IllegalStateException("Grok returned an empty response");
+            throw new IllegalStateException("Grok could not generate a response. Please try again.");
         }
         return content.asText().trim();
     }

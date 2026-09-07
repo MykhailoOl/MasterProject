@@ -129,6 +129,11 @@ public class ProjectController {
         } catch (IllegalStateException ex) {
             appLog.error("ELICITATION", "Could not start or continue elicitation for project #" + id, ex);
             redirectAttributes.addFlashAttribute(
+                    "errorMessage", userFacingLlmOrGeneric(ex, "Elicitation could not continue. Please try again."));
+            return "redirect:/projects/" + id;
+        } catch (RuntimeException ex) {
+            appLog.error("ELICITATION", "Unexpected elicitation failure for project #" + id, ex);
+            redirectAttributes.addFlashAttribute(
                     "errorMessage", "Elicitation could not continue. Please try again.");
             return "redirect:/projects/" + id;
         }
@@ -163,6 +168,11 @@ public class ProjectController {
         } catch (IllegalArgumentException | IllegalStateException ex) {
             appLog.error("ELICITATION", "Could not process an answer for project #" + id, ex);
             redirectAttributes.addFlashAttribute(
+                    "errorMessage", userFacingLlmOrGeneric(ex, "Your answer could not be processed. Please try again."));
+            return "redirect:/projects/" + id + "/elicit";
+        } catch (RuntimeException ex) {
+            appLog.error("ELICITATION", "Unexpected answer failure for project #" + id, ex);
+            redirectAttributes.addFlashAttribute(
                     "errorMessage", "Your answer could not be processed. Please try again.");
             return "redirect:/projects/" + id + "/elicit";
         }
@@ -178,28 +188,49 @@ public class ProjectController {
         } catch (IllegalArgumentException | IllegalStateException ex) {
             appLog.error("ELICITATION", "Fast finish failed for project #" + id, ex);
             redirectAttributes.addFlashAttribute(
-                    "errorMessage", "Fast finish could not complete. Please try again.");
+                    "errorMessage",
+                    userFacingLlmOrGeneric(
+                            ex, "Fast finish could not complete. Remaining questions can still be answered one by one."));
+            return "redirect:/projects/" + id + "/elicit";
+        } catch (RuntimeException ex) {
+            appLog.error("ELICITATION", "Unexpected fast finish failure for project #" + id, ex);
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage",
+                    "Fast finish could not complete. Remaining questions can still be answered one by one.");
             return "redirect:/projects/" + id + "/elicit";
         }
     }
 
     @PostMapping("/{id}/export/spec")
     public String exportSpec(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        specExportService.generateSpecMarkdown(id);
-        redirectAttributes.addFlashAttribute("message", "SPEC.md generated.");
+        try {
+            specExportService.generateSpecMarkdown(id);
+            redirectAttributes.addFlashAttribute("message", "SPEC.md generated.");
+        } catch (RuntimeException ex) {
+            appLog.error("SPEC", "SPEC.md generation failed for project #" + id, ex);
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "The SPEC file could not be generated. Please try again.");
+        }
         return "redirect:/projects/" + id + "/elicit";
     }
 
     @GetMapping("/{id}/export/spec/download")
     public ResponseEntity<String> downloadSpec(@PathVariable Long id) {
-        ExportArtifact artifact = specExportService.latestSpec(id);
-        if (artifact == null) {
-            artifact = specExportService.generateSpecMarkdown(id);
+        try {
+            ExportArtifact artifact = specExportService.latestSpec(id);
+            if (artifact == null) {
+                artifact = specExportService.generateSpecMarkdown(id);
+            }
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"SPEC.md\"")
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(artifact.getContent());
+        } catch (RuntimeException ex) {
+            appLog.error("SPEC", "SPEC.md download failed for project #" + id, ex);
+            return ResponseEntity.status(503)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body("The SPEC file could not be generated. Please try again.");
         }
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"SPEC.md\"")
-                .contentType(MediaType.TEXT_PLAIN)
-                .body(artifact.getContent());
     }
 
     @ExceptionHandler({ProjectNotFoundException.class, ProjectAccessDeniedException.class})
@@ -222,5 +253,21 @@ public class ProjectController {
             return selectedChoice.trim();
         }
         return answerText == null ? null : answerText.trim();
+    }
+
+    private String userFacingLlmOrGeneric(RuntimeException ex, String fallback) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return fallback;
+        }
+        if (message.contains("rate limited")
+                || message.contains("over quota")
+                || message.contains("API key")
+                || message.contains("credits")
+                || message.contains("temporarily unavailable")
+                || message.contains("blocked this request")) {
+            return message;
+        }
+        return fallback;
     }
 }

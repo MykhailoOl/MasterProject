@@ -110,9 +110,13 @@ public class OpenAiLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        JsonNode content = objectMapper.readTree(response).path("choices").path(0).path("message").path("content");
+        JsonNode choice = objectMapper.readTree(response).path("choices").path(0);
+        if ("content_filter".equalsIgnoreCase(choice.path("finish_reason").asText())) {
+            throw new IllegalStateException("OpenAI blocked this request. Please rephrase and try again.");
+        }
+        JsonNode content = choice.path("message").path("content");
         if (content.isMissingNode() || content.asText().isBlank()) {
-            throw new IllegalStateException("OpenAI returned an empty response");
+            throw new IllegalStateException("OpenAI could not generate a response. Please try again.");
         }
         return content.asText().trim();
     }

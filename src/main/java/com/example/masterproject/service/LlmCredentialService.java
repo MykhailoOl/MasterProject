@@ -140,15 +140,22 @@ public class LlmCredentialService {
         return encryptionService.decrypt(credential.getApiKeyEnc());
     }
 
-    @Transactional(readOnly = true)
     public String complete(
             LlmProvider provider, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         String apiKey = resolveApiKey(provider);
         appLog.info("LLM", "Calling " + displayName(provider) + " for " + userContextService.getCurrentUserEmailOrNull() + ".");
         LlmClient client = llmClientRegistry.require(provider);
-        return llmRequestExecutor.execute(
-                provider,
-                () -> client.complete(apiKey, systemPrompt, userPrompt, temperature, maxTokens));
+        try {
+            return llmRequestExecutor.execute(
+                    provider,
+                    () -> client.complete(apiKey, systemPrompt, userPrompt, temperature, maxTokens));
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            appLog.error("LLM", displayName(provider) + " request failed unexpectedly: " + ex.getMessage());
+            throw new IllegalStateException(
+                    displayName(provider) + " could not generate a response. Please try again.", ex);
+        }
     }
 
     private LlmProviderView toView(LlmProvider provider, UserLlmCredential credential) {

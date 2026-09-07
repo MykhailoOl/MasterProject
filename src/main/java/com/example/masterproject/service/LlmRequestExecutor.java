@@ -1,5 +1,6 @@
 package com.example.masterproject.service;
 
+import com.example.masterproject.llm.LlmFailureMessages;
 import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.enums.LlmProvider;
 import java.time.Duration;
@@ -33,7 +34,7 @@ public class LlmRequestExecutor {
                 lastFailure = ex;
                 long delay = retryDelayMillis(ex, attempt);
                 if (attempt == MAX_ATTEMPTS || delay < 0) {
-                    throw ex;
+                    throw asIllegalState(provider, ex);
                 }
                 appLog.warn(
                         "LLM",
@@ -42,7 +43,24 @@ public class LlmRequestExecutor {
                 pause(delay);
             }
         }
-        throw lastFailure;
+        throw asIllegalState(provider, lastFailure);
+    }
+
+    private IllegalStateException asIllegalState(LlmProvider provider, RuntimeException failure) {
+        RestClientResponseException response = findCause(failure, RestClientResponseException.class);
+        String name = switch (provider) {
+            case OPENAI -> "OpenAI";
+            case ANTHROPIC -> "Anthropic";
+            case GEMINI -> "Gemini";
+            case GROK -> "Grok";
+        };
+        if (response != null) {
+            return new IllegalStateException(LlmFailureMessages.forHttp(name, response), failure);
+        }
+        if (failure instanceof IllegalStateException illegal) {
+            return illegal;
+        }
+        return new IllegalStateException(name + " could not generate a response. Please try again.", failure);
     }
 
     long retryDelayMillis(Throwable failure, int attempt) {
@@ -50,7 +68,7 @@ public class LlmRequestExecutor {
         if (response != null) {
             int status = response.getStatusCode().value();
             if (status == 429) {
-                return retryAfterMillis(response);
+                return -1;
             }
             if (status >= 500 || status == 408) {
                 long retryAfter = retryAfterMillis(response);

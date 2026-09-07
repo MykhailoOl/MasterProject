@@ -60,4 +60,39 @@ class GeminiLlmClientTests {
                 .hasMessageNotContaining("API key not valid");
         server.verify();
     }
+
+    @Test
+    void completeDoesNotTryAnotherModelWhenQuotaIsExhausted() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GeminiLlmClient client = new GeminiLlmClient(builder, new ObjectMapper(), mock(AppLog.class));
+
+        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details.\",\"status\":\"RESOURCE_EXHAUSTED\"}}"));
+
+        assertThatThrownBy(() -> client.complete("test-key", "System", "User", 0.3, 2000))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Gemini is rate limited or over quota. Please try again in a minute.")
+                .hasMessageNotContaining("429");
+        server.verify();
+    }
+
+    @Test
+    void completeMapsSafetyBlocksToAUserMessage() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GeminiLlmClient client = new GeminiLlmClient(builder, new ObjectMapper(), mock(AppLog.class));
+
+        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"))
+                .andRespond(withSuccess(
+                        "{\"promptFeedback\":{\"blockReason\":\"SAFETY\"},\"candidates\":[]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.complete("test-key", "System", "User", 0.3, 2000))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Gemini blocked this request. Please rephrase and try again.");
+        server.verify();
+    }
 }

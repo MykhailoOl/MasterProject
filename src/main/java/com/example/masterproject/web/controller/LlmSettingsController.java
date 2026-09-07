@@ -52,8 +52,13 @@ public class LlmSettingsController {
             model.addAttribute("providers", llmCredentialService.listForCurrentUser());
             return "settings/llm";
         }
-        LlmHealthResult result = llmCredentialService.saveAndVerify(request.getProvider(), request.getApiKey());
-        redirectAttributes.addFlashAttribute(result.ok() ? "message" : "errorMessage", result.message());
+        try {
+            LlmHealthResult result = llmCredentialService.saveAndVerify(request.getProvider(), request.getApiKey());
+            redirectAttributes.addFlashAttribute(result.ok() ? "message" : "errorMessage", result.message());
+        } catch (RuntimeException ex) {
+            appLog.error("LLM", "Could not save API key for " + request.getProvider(), ex);
+            redirectAttributes.addFlashAttribute("errorMessage", "The API key could not be saved. Please try again.");
+        }
         return "redirect:/settings/llm";
     }
 

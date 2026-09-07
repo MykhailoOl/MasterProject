@@ -132,4 +132,23 @@ class GrokLlmClientTests {
         assertThat(result).isEqualTo("Fallback answer");
         server.verify();
     }
+
+    @Test
+    void completeDoesNotTryAnotherModelWhenRateLimited() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GrokLlmClient client = new GrokLlmClient(builder, new ObjectMapper(), mock(AppLog.class));
+
+        server.expect(requestTo("https://api.x.ai/v1/chat/completions"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"Too many requests\"}"));
+
+        assertThatThrownBy(() -> client.complete("test-key", "System", "User", 0.3, 2000))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Grok is rate limited or over quota. Please try again in a minute.")
+                .hasMessageNotContaining("429");
+        server.verify();
+    }
 }

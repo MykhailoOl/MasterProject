@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 class LlmRequestExecutorTests {
 
@@ -56,26 +57,41 @@ class LlmRequestExecutorTests {
     }
 
     @Test
-    void retriesRateLimitsOnlyWhenProviderSuppliesAShortRetryDelay() {
+    void doesNotRetryRateLimitsEvenWhenRetryAfterIsPresent() {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.RETRY_AFTER, "1");
         AtomicInteger attempts = new AtomicInteger();
 
-        String result = executor.execute(LlmProvider.ANTHROPIC, () -> {
-            if (attempts.incrementAndGet() == 1) {
-                throw wrapped(HttpClientErrorException.create(
-                        HttpStatus.TOO_MANY_REQUESTS,
-                        "Rate limited",
-                        headers,
-                        new byte[0],
-                        UTF_8));
-            }
-            return "ok";
-        });
+        assertThatThrownBy(() -> executor.execute(LlmProvider.ANTHROPIC, () -> {
+                    attempts.incrementAndGet();
+                    throw wrapped(HttpClientErrorException.create(
+                            HttpStatus.TOO_MANY_REQUESTS,
+                            "Rate limited",
+                            headers,
+                            new byte[0],
+                            UTF_8));
+                }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("rate limited");
 
-        assertThat(result).isEqualTo("ok");
-        assertThat(attempts).hasValue(2);
-        assertThat(executor.delays()).containsExactly(1000L);
+        assertThat(attempts).hasValue(1);
+        assertThat(executor.delays()).isEmpty();
+    }
+
+    @Test
+    void wrapsRawHttpFailuresAsIllegalStateException() {
+        assertThatThrownBy(() -> executor.execute(LlmProvider.GEMINI, () -> {
+                    throw HttpClientErrorException.create(
+                            HttpStatus.TOO_MANY_REQUESTS,
+                            "Too Many Requests",
+                            HttpHeaders.EMPTY,
+                            "{\"error\":{\"message\":\"Quota exceeded\",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+                                    .getBytes(UTF_8),
+                            UTF_8);
+                }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Gemini is rate limited or over quota. Please try again in a minute.")
+                .isNotInstanceOf(HttpClientErrorException.class);
     }
 
     @Test
@@ -94,6 +110,15 @@ class LlmRequestExecutorTests {
                 .isInstanceOf(IllegalStateException.class);
 
         assertThat(attempts).hasValue(1);
+    }
+
+    @Test
+    void wrapsNetworkFailuresAsIllegalStateException() {
+        assertThatThrownBy(() -> executor.execute(LlmProvider.OPENAI, () -> {
+                    throw new ResourceAccessException("Read timed out");
+                }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("OpenAI could not generate a response. Please try again.");
     }
 
     @Test

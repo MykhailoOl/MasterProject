@@ -435,7 +435,7 @@ public class ElicitationService {
             if (generated != null && !generated.isBlank()) {
                 draft = generated.trim();
             }
-        } catch (IllegalStateException ex) {
+        } catch (Exception ex) {
             appLog.warn(
                     "ELICITATION",
                     "Using the initial idea as the final summary draft for project #" + project.getId()
