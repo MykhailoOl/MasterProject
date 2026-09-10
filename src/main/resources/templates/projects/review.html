@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Review your plan')}"></head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container narrow">
+    <h1>Does this describe what you mean?</h1>
+    <p>Read the statements below. Correct anything that feels wrong or add something we missed.
+        Decisions you are unsure about can stay open.</p>
+    <div th:if="${message}" class="flash" th:text="${message}"></div>
+    <div th:if="${errorMessage}" class="flash error-flash" role="alert" th:text="${errorMessage}"></div>
+    <section th:unless="${project.currentProtocol}" class="form-card">
+        <h2>This interview was collected using an older method</h2>
+        <p>Your original answers are preserved below. Their origin cannot be verified, so they cannot be used to create a new verified plan.</p>
+        <a class="button" th:href="@{/projects/new}">Start a new project in your own words</a>
+    </section>
+    <section th:if="${needsAssessment and project.currentProtocol}" class="form-card">
+        <h2>Some notes still need checking</h2>
+        <p>Your original answers are saved. We cannot confirm this plan until they have been checked.</p>
+        <form th:action="@{/projects/{id}/review/retry(id=${project.id})}" method="post" data-busy-form>
+            <button class="button" type="submit">Retry the check</button>
+            <p class="busy-message" hidden role="status">Checking your saved notes…</p>
+        </form>
+    </section>
+
+    <section class="form-card" th:if="${!#lists.isEmpty(document.activeCapabilities())}">
+        <h2>What the first version should let people do</h2>
+        <ul><li th:each="capability : ${document.activeCapabilities()}" th:text="${capability.name}"></li></ul>
+        <p>If a feature is wrong or missing, tell us in the correction box below.</p>
+    </section>
+    <p th:if="${#lists.isEmpty(entries) and #lists.isEmpty(document.activeCapabilities())}">No requirements have been captured yet. Add a concrete need below.</p>
+    <article th:each="entry : ${entries}" class="form-card review-entry">
+        <p class="badge" th:text="${@taxonomyLabels.resolution(entry.resolution.name())}"></p>
+        <p th:text="${entry.text}"></p>
+        <details th:if="${project.currentProtocol}">
+            <summary>Correct this statement</summary>
+            <form th:action="@{/projects/{id}/review/correct(id=${project.id})}" method="post" data-busy-form>
+                <input type="hidden" name="revision" th:value="${project.interviewRevision}">
+                <input type="hidden" name="entryId" th:value="${entry.id}">
+                <label th:for="${'edit-' + entry.id}">What should it say instead?</label>
+                <textarea th:id="${'edit-' + entry.id}" name="correction" rows="3" required maxlength="4500"
+                          th:text="${entry.text}"></textarea>
+                <p class="hint">You can also write that this is incorrect or should be left out.</p>
+                <button class="button secondary" type="submit">Save correction</button>
+                <p class="busy-message" hidden role="status">Checking the correction against your other answers…</p>
+            </form>
+        </details>
+        <details th:if="${!#lists.isEmpty(entry.evidence)}">
+            <summary>What this came from</summary>
+            <p th:each="evidence : ${entry.evidence}">
+                <span th:text="${evidence.source}"></span>: <span th:text="${evidence.quote}"></span>
+            </p>
+        </details>
+    </article>
+
+    <section class="form-card" th:if="${project.currentProtocol}">
+        <h2>Anything wrong or missing?</h2>
+        <form th:action="@{/projects/{id}/review/correct(id=${project.id})}" method="post" data-busy-form>
+            <input type="hidden" name="revision" th:value="${project.interviewRevision}">
+            <label for="correction">Tell us what to change or add</label>
+            <textarea id="correction" name="correction" rows="4" minlength="3" maxlength="5000" required th:text="${correctionDraft}"></textarea>
+            <button class="button secondary" type="submit">Update the plan</button>
+            <p class="busy-message" hidden role="status">Saving and checking your correction…</p>
+        </form>
+    </section>
+
+    <details class="form-card" th:if="${!#lists.isEmpty(gaps)}">
+        <summary>Decisions still open or not discussed (<span th:text="${#lists.size(gaps)}"></span>)</summary>
+        <p>These are questions to consider before building the affected parts. You can address them in the box above,
+            or leave them in the downloaded plan.</p>
+        <ul><li th:each="gap : ${gaps}" th:text="${gap.question}"></li></ul>
+    </details>
+    <details class="form-card">
+        <summary>Read your original answers</summary>
+        <div th:each="source : ${sources}">
+            <strong th:text="${source.question.isBlank()} ? 'Starting idea' : ${source.question}"></strong>
+            <p th:text="${source.text}"></p>
+        </div>
+    </details>
+
+    <section class="form-card" th:if="${project.currentProtocol}">
+        <h2>Confirm your plan</h2>
+        <p>This confirms that the recorded needs reflect your intention. Open decisions remain open in the SPEC file.</p>
+        <form th:if="${project.status.name() == 'IN_PROGRESS'}"
+              th:action="@{/projects/{id}/elicit/finish(id=${project.id})}" method="post">
+            <input type="hidden" name="revision" th:value="${project.interviewRevision}">
+            <button class="button" type="submit">Finish questions and review</button>
+        </form>
+        <form th:unless="${project.status.name() == 'IN_PROGRESS'}"
+              th:action="@{/projects/{id}/review/confirm(id=${project.id})}" method="post" data-busy-form>
+            <input type="hidden" name="revision" th:value="${project.interviewRevision}">
+            <label for="title">Project name</label>
+            <input id="title" name="title" type="text" th:value="${titleDraft ?: project.title}" minlength="3" maxlength="255" required>
+            <p><strong>Short description from your recorded needs</strong></p>
+            <p th:text="${summary}"></p>
+            <p class="hint">Use the correction box above for changes to features or rules.</p>
+            <label class="check-row">
+                <input type="checkbox" name="accepted" value="true" required>
+                <span>I have read the statements and open decisions. This is what I mean.</span>
+            </label>
+            <button class="button" type="submit" th:disabled="${needsAssessment}">Confirm and create SPEC</button>
+            <p class="busy-message" hidden role="status">Preparing your reviewed SPEC file…</p>
+        </form>
+        <div class="actions">
+            <a th:if="${latestSpec != null}" class="button"
+               th:href="@{/projects/{id}/export/spec/download(id=${project.id})}">Download SPEC.md</a>
+            <a th:href="@{/projects}">Back to projects</a>
+        </div>
+    </section>
+
+    <details class="form-card">
+        <summary>Preview the SPEC file</summary>
+        <pre class="spec-preview" th:text="${preview}"></pre>
+    </details>
+</main>
+<script th:src="@{/js/interview.js}"></script>
+</body>
+</html>

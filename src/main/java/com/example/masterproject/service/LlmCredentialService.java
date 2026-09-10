@@ -5,6 +5,7 @@ import com.example.masterproject.llm.LlmClientRegistry;
 import com.example.masterproject.llm.LlmHealthResult;
 import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.User;
+import com.example.masterproject.model.entity.Project;
 import com.example.masterproject.model.entity.UserLlmCredential;
 import com.example.masterproject.model.enums.LlmProvider;
 import com.example.masterproject.repository.UserLlmCredentialRepository;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.MDC;
 
 @Service
 public class LlmCredentialService {
@@ -31,6 +33,8 @@ public class LlmCredentialService {
     private final LlmClientRegistry llmClientRegistry;
     private final LlmRequestExecutor llmRequestExecutor;
     private final AppLog appLog;
+    private final com.example.masterproject.repository.LlmCallAuditRepository callAudits;
+    private final tools.jackson.databind.ObjectMapper mapper;
 
     public LlmCredentialService(
             UserLlmCredentialRepository credentialRepository,
@@ -38,13 +42,16 @@ public class LlmCredentialService {
             SecretEncryptionService encryptionService,
             LlmClientRegistry llmClientRegistry,
             LlmRequestExecutor llmRequestExecutor,
-            AppLog appLog) {
+            AppLog appLog, com.example.masterproject.repository.LlmCallAuditRepository callAudits,
+            tools.jackson.databind.ObjectMapper mapper) {
         this.credentialRepository = credentialRepository;
         this.userContextService = userContextService;
         this.encryptionService = encryptionService;
         this.llmClientRegistry = llmClientRegistry;
         this.llmRequestExecutor = llmRequestExecutor;
         this.appLog = appLog;
+        this.callAudits = callAudits;
+        this.mapper = mapper;
     }
 
     @Transactional(readOnly = true)
@@ -59,7 +66,6 @@ public class LlmCredentialService {
                 .toList();
     }
 
-    @Transactional
     public LlmHealthResult saveAndVerify(LlmProvider provider, String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {
             return new LlmHealthResult(false, "API key is required.");
@@ -98,7 +104,6 @@ public class LlmCredentialService {
         return new LlmHealthResult(true, message);
     }
 
-    @Transactional
     public LlmHealthResult verifyStored(LlmProvider provider) {
         User user = userContextService.getCurrentUser();
         UserLlmCredential credential = credentialRepository
@@ -143,7 +148,7 @@ public class LlmCredentialService {
     public String complete(
             LlmProvider provider, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         String apiKey = resolveApiKey(provider);
-        appLog.info("LLM", "Calling " + displayName(provider) + " for " + userContextService.getCurrentUserEmailOrNull() + ".");
+        appLog.info("LLM", "Calling " + displayName(provider) + ".");
         LlmClient client = llmClientRegistry.require(provider);
         try {
             return llmRequestExecutor.execute(
@@ -152,9 +157,42 @@ public class LlmCredentialService {
         } catch (IllegalStateException ex) {
             throw ex;
         } catch (RuntimeException ex) {
-            appLog.error("LLM", displayName(provider) + " request failed unexpectedly: " + ex.getMessage());
+            appLog.error("LLM", displayName(provider) + " request failed unexpectedly", ex);
             throw new IllegalStateException(
                     displayName(provider) + " could not generate a response. Please try again.", ex);
+        }
+    }
+
+    public String completeForProject(Project project, String phase, String promptVersion,
+                                     String systemPrompt, String userPrompt, double temperature, int maxTokens) {
+        long start = System.nanoTime();
+        String callId = MDC.get("call") == null ? java.util.UUID.randomUUID().toString() : MDC.get("call");
+        var audit = new com.example.masterproject.model.entity.LlmCallAudit();
+        audit.setId(callId); audit.setProjectId(project.getId()); audit.setPhase(phase);
+        audit.setPromptVersion(promptVersion); audit.setProvider(project.getLlmProvider().name());
+        audit.setRequestedTemperature(temperature); audit.setOutcome("FAILURE");
+        try (var trace = com.example.masterproject.llm.LlmCallTrace.start();
+             var projectContext = MDC.putCloseable("project", String.valueOf(project.getId()));
+             var callContext = MDC.putCloseable("call", callId);
+             var phaseContext = MDC.putCloseable("phase", phase);
+             var promptContext = MDC.putCloseable("prompt", promptVersion)) {
+            appLog.info("LLM_CALL", "event=start provider=" + project.getLlmProvider()
+                    + " requested_temperature=" + temperature + " max_output_tokens=" + maxTokens);
+            try {
+                String result = complete(project.getLlmProvider(), systemPrompt, userPrompt, temperature, maxTokens);
+                audit.setOutcome("RESPONSE");
+                appLog.info("LLM_CALL", "event=end outcome=response duration_ms="
+                        + (System.nanoTime() - start) / 1_000_000 + " output_chars=" + (result == null ? 0 : result.length()));
+                return result;
+            } catch (RuntimeException ex) {
+                com.example.masterproject.llm.LlmCallTrace.failure(ex);
+                appLog.error("LLM_CALL", "event=end outcome=failure duration_ms=" + (System.nanoTime() - start) / 1_000_000, ex);
+                throw ex;
+            } finally {
+                audit.setDurationMs((System.nanoTime() - start) / 1_000_000);
+                audit.setMetadataJson(mapper.writeValueAsString(trace.attempts()));
+                callAudits.save(audit);
+            }
         }
     }
 

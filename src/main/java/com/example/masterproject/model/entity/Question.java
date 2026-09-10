@@ -21,6 +21,33 @@ import java.time.Instant;
 @Entity
 @Table(name = "questions")
 public class Question {
+    @Column(name = "generation_origin", nullable = false, length = 32)
+    private String generationOrigin = "LOCAL";
+    @Column(name = "generation_reason", length = 100)
+    private String generationReason;
+    @Column(name = "llm_call_id")
+    private String llmCallId;
+    @Column(name = "prompt_version", length = 100)
+    private String promptVersion;
+    public String getGenerationOrigin() { return generationOrigin; }
+    public void setGenerationOrigin(String value) { generationOrigin = value; }
+    public String getGenerationReason() { return generationReason; }
+    public void setGenerationReason(String value) { generationReason = value; }
+    public String getLlmCallId() { return llmCallId; }
+    public void setLlmCallId(String value) { llmCallId = value; }
+    public String getPromptVersion() { return promptVersion; }
+    public void setPromptVersion(String value) { promptVersion = value; }
+
+    @Column(name = "focus_capability", length = 80)
+    private String focusCapability;
+
+    @Column(name = "question_kind", nullable = false, length = 32)
+    private String questionKind = "INTERVIEW";
+
+    public String getFocusCapability() { return focusCapability; }
+    public void setFocusCapability(String value) { focusCapability = value; }
+    public String getQuestionKind() { return questionKind; }
+    public void setQuestionKind(String value) { questionKind = value; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

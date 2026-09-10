@@ -17,6 +17,10 @@ import java.time.Instant;
 @Entity
 @Table(name = "answers")
 public class Answer {
+    @Column(nullable = false, length = 32)
+    private String provenance = "STAKEHOLDER";
+    public String getProvenance() { return provenance; }
+    public void setProvenance(String value) { provenance = value; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

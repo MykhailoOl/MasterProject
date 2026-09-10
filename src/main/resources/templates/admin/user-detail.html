@@ -24,6 +24,20 @@
     </section>
 
     <section class="admin-section">
+        <h2>Interview assignment</h2>
+        <p>Applies to future projects. Existing sessions keep their original assignment.</p>
+        <p th:if="${studyCondition == null}">This account is not enrolled. Ordinary projects are excluded from the study dataset.</p>
+        <form th:if="${studyCondition == null}" th:action="@{/admin/users/{id}/enroll(id=${userDetail.id})}" method="post">
+            <button type="submit" class="button">Enroll and randomly assign</button>
+        </form>
+        <form th:action="@{/admin/users/{id}/study-condition(id=${userDetail.id})}" method="post" class="form-card">
+            <label for="condition">Condition</label>
+            <select id="condition" name="condition">
+                <option value="GUIDED" th:selected="${studyCondition == null or studyCondition.name() == 'GUIDED'}">Taxonomy guided</option>
+                <option value="BASELINE" th:selected="${studyCondition != null and studyCondition.name() == 'BASELINE'}">General purpose interview</option>
+            </select>
+            <button type="submit" class="button">Save external or manual assignment</button>
+        </form>
         <h2>Projects</h2>
         <div th:if="${#lists.isEmpty(userDetail.projects)}" class="empty-state">
             <p>No projects yet.</p>

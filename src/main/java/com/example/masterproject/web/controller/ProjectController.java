@@ -1,273 +1,138 @@
 package com.example.masterproject.web.controller;
 
-import com.example.masterproject.logging.AppLog;
 import com.example.masterproject.model.entity.ExportArtifact;
-import com.example.masterproject.model.taxonomy.TaxonomyCatalog;
-import com.example.masterproject.service.ElicitationService;
-import com.example.masterproject.service.LlmCredentialService;
-import com.example.masterproject.service.ProjectAccessDeniedException;
-import com.example.masterproject.service.ProjectNotFoundException;
-import com.example.masterproject.service.ProjectService;
-import com.example.masterproject.service.SpecExportService;
-import com.example.masterproject.web.dto.AnswerQuestionRequest;
-import com.example.masterproject.web.dto.CreateProjectRequest;
-import com.example.masterproject.web.dto.LlmProviderView;
+import com.example.masterproject.service.*;
+import com.example.masterproject.web.dto.*;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/projects")
 public class ProjectController {
+    private final ProjectService projects;
+    private final LlmCredentialService credentials;
+    private final ElicitationService elicitation;
+    private final SpecExportService exports;
 
-    private final ProjectService projectService;
-    private final LlmCredentialService llmCredentialService;
-    private final ElicitationService elicitationService;
-    private final SpecExportService specExportService;
-    private final AppLog appLog;
-
-    public ProjectController(
-            ProjectService projectService,
-            LlmCredentialService llmCredentialService,
-            ElicitationService elicitationService,
-            SpecExportService specExportService,
-            AppLog appLog) {
-        this.projectService = projectService;
-        this.llmCredentialService = llmCredentialService;
-        this.elicitationService = elicitationService;
-        this.specExportService = specExportService;
-        this.appLog = appLog;
+    public ProjectController(ProjectService projects, LlmCredentialService credentials,
+                             ElicitationService elicitation, SpecExportService exports) {
+        this.projects = projects; this.credentials = credentials;
+        this.elicitation = elicitation; this.exports = exports;
     }
 
     @GetMapping
     public String listProjects(Model model) {
-        model.addAttribute("projects", projectService.listProjectsForCurrentUser());
-        var providers = llmCredentialService.listForCurrentUser();
-        model.addAttribute(
-                "hasConfiguredProvider",
-                providers.stream().anyMatch(LlmProviderView::isConfigured));
+        model.addAttribute("projects", projects.listProjectsForCurrentUser());
+        model.addAttribute("hasConfiguredProvider", credentials.listForCurrentUser().stream().anyMatch(LlmProviderView::isConfigured));
         return "projects/list";
     }
 
     @GetMapping("/new")
     public String newProjectForm(Model model) {
-        if (!model.containsAttribute("createProjectRequest")) {
-            model.addAttribute("createProjectRequest", new CreateProjectRequest());
-        }
-        populateNewProjectModel(model);
+        if (!model.containsAttribute("createProjectRequest")) model.addAttribute("createProjectRequest", new CreateProjectRequest());
+        populate(model);
         return "projects/new";
     }
 
     @PostMapping
-    public String createProject(
-            @Valid @ModelAttribute("createProjectRequest") CreateProjectRequest request,
-            BindingResult bindingResult,
-            Model model,
-            RedirectAttributes redirectAttributes) {
-        if (request.getLlmProvider() != null && !llmCredentialService.hasProvider(request.getLlmProvider())) {
-            bindingResult.rejectValue(
-                    "llmProvider",
-                    "project.llmProvider.missing",
-                    "Save and verify an API key for this provider first.");
+    public String createProject(@Valid @ModelAttribute("createProjectRequest") CreateProjectRequest request,
+                                BindingResult binding, Model model, RedirectAttributes redirect) {
+        if (request.getLlmProvider() != null && !credentials.hasProvider(request.getLlmProvider())) {
+            binding.rejectValue("llmProvider", "missing", "Connect an AI helper first.");
         }
-        if (bindingResult.hasErrors()) {
-            populateNewProjectModel(model);
-            return "projects/new";
-        }
+        if (binding.hasErrors()) { populate(model); return "projects/new"; }
         try {
-            Long projectId = projectService.createProject(request).getId();
-            redirectAttributes.addFlashAttribute("message", "Project created. Start answering questions.");
-            return "redirect:/projects/" + projectId + "/elicit";
+            Long id = projects.createProject(request).getId();
+            return "redirect:/projects/" + id + "/elicit";
         } catch (IllegalStateException ex) {
-            appLog.error("PROJECT", "Project creation failed", ex);
-            bindingResult.reject("project.create.failed", ex.getMessage());
-            populateNewProjectModel(model);
+            binding.reject("creationFailed", ex.getMessage());
+            populate(model);
             return "projects/new";
         }
     }
 
     @GetMapping("/{id}")
     public String projectDetail(@PathVariable Long id, Model model) {
-        model.addAttribute("project", projectService.getProjectForCurrentUser(id));
-        model.addAttribute("requirementSlots", projectService.getRequirementSlots(id));
-        model.addAttribute("projectCategories", projectService.getProjectCategories(id));
-        model.addAttribute("latestSpec", specExportService.latestSpec(id));
+        model.addAttribute("project", projects.getProjectForCurrentUser(id));
+        model.addAttribute("requirementSlots", projects.getRequirementSlots(id));
+        model.addAttribute("projectCategories", projects.getProjectCategories(id));
+        model.addAttribute("latestSpec", exports.latestSpec(id));
         return "projects/detail";
     }
 
     @GetMapping("/{id}/elicit")
-    public String elicit(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
-        try {
-            ElicitationService.ElicitationView view = elicitationService.getOrAdvance(id);
-            model.addAttribute("view", view);
-            AnswerQuestionRequest answerRequest = new AnswerQuestionRequest();
-            if (view.suggestedAnswer() != null) {
-                answerRequest.setAnswerText(view.suggestedAnswer());
-            }
-            model.addAttribute("answerQuestionRequest", answerRequest);
-            model.addAttribute("selectedChoice", "");
-            if (view.complete()) {
-                ExportArtifact latestSpec = specExportService.latestSpec(id);
-                if (latestSpec == null) {
-                    latestSpec = specExportService.generateSpecMarkdown(id);
-                }
-                model.addAttribute("latestSpec", latestSpec);
-            }
-            return "projects/elicit";
-        } catch (IllegalStateException ex) {
-            appLog.error("ELICITATION", "Could not start or continue elicitation for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage", userFacingLlmOrGeneric(ex, "Elicitation could not continue. Please try again."));
-            return "redirect:/projects/" + id;
-        } catch (RuntimeException ex) {
-            appLog.error("ELICITATION", "Unexpected elicitation failure for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage", "Elicitation could not continue. Please try again.");
-            return "redirect:/projects/" + id;
+    public String elicit(@PathVariable Long id, Model model) {
+        var view = elicitation.view(id);
+        if (view.complete()) return "redirect:/projects/" + id + "/review";
+        model.addAttribute("view", view);
+        Object draftQuestion = model.getAttribute("draftQuestionId");
+        if (draftQuestion != null && (view.currentQuestion() == null
+                || !String.valueOf(view.currentQuestion().getId()).equals(String.valueOf(draftQuestion)))) {
+            model.asMap().remove("answerQuestionRequest");
         }
+        if (!model.containsAttribute("answerQuestionRequest")) model.addAttribute("answerQuestionRequest", new AnswerQuestionRequest());
+        return "projects/elicit";
+    }
+
+    @PostMapping("/{id}/elicit/next")
+    public String advance(@PathVariable Long id, RedirectAttributes redirect) {
+        try { elicitation.getOrAdvance(id); }
+        catch (IllegalStateException ex) { redirect.addFlashAttribute("errorMessage", ex.getMessage()); }
+        return "redirect:/projects/" + id + "/elicit";
     }
 
     @PostMapping("/{id}/elicit/{questionId:\\d+}")
-    public String answer(
-            @PathVariable Long id,
-            @PathVariable Long questionId,
-            @Valid @ModelAttribute("answerQuestionRequest") AnswerQuestionRequest request,
-            BindingResult bindingResult,
-            @RequestParam(value = "selectedChoice", required = false) String selectedChoice,
-            Model model,
-            RedirectAttributes redirectAttributes) {
-        String resolvedAnswer = resolveAnswer(selectedChoice, request.getAnswerText());
-        request.setAnswerText(resolvedAnswer);
-        if (resolvedAnswer == null || resolvedAnswer.isBlank()) {
-            String message = "__custom__".equals(selectedChoice)
-                    ? "Enter a custom title."
-                    : "Answer is required.";
-            bindingResult.rejectValue("answerText", "answer.required", message);
+    public String answer(@PathVariable Long id, @PathVariable Long questionId,
+                         @ModelAttribute AnswerQuestionRequest request,
+                         @RequestParam(defaultValue = "ANSWER") String answerAction, RedirectAttributes redirect) {
+        String answer = request.getAnswerText();
+        if ("UNSURE".equals(answerAction)) {
+            answer = answer == null || answer.isBlank() ? "I do not know yet; leave this decision open."
+                    : answer.trim() + "\n\nI am unsure about the remaining details; leave those decisions open.";
         }
-        if (bindingResult.hasErrors()) {
-            ElicitationService.ElicitationView view = elicitationService.getOrAdvance(id);
-            model.addAttribute("view", view);
-            model.addAttribute("selectedChoice", selectedChoice == null ? "" : selectedChoice);
-            return "projects/elicit";
-        }
-        try {
-            elicitationService.submitAnswer(id, questionId, resolvedAnswer);
-            return "redirect:/projects/" + id + "/elicit";
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            appLog.error("ELICITATION", "Could not process an answer for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage", userFacingLlmOrGeneric(ex, "Your answer could not be processed. Please try again."));
-            return "redirect:/projects/" + id + "/elicit";
-        } catch (RuntimeException ex) {
-            appLog.error("ELICITATION", "Unexpected answer failure for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage", "Your answer could not be processed. Please try again.");
-            return "redirect:/projects/" + id + "/elicit";
-        }
-    }
-
-    @PostMapping("/{id}/elicit/fast-finish")
-    public String fastFinish(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        try {
-            elicitationService.fastFinish(id);
-            redirectAttributes.addFlashAttribute(
-                    "message", "Fast finish filled the remaining questions with generated examples.");
-            return "redirect:/projects/" + id + "/elicit";
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            appLog.error("ELICITATION", "Fast finish failed for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    userFacingLlmOrGeneric(
-                            ex, "Fast finish could not complete. Remaining questions can still be answered one by one."));
-            return "redirect:/projects/" + id + "/elicit";
-        } catch (RuntimeException ex) {
-            appLog.error("ELICITATION", "Unexpected fast finish failure for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage",
-                    "Fast finish could not complete. Remaining questions can still be answered one by one.");
-            return "redirect:/projects/" + id + "/elicit";
-        }
-    }
-
-    @PostMapping("/{id}/export/spec")
-    public String exportSpec(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        try {
-            specExportService.generateSpecMarkdown(id);
-            redirectAttributes.addFlashAttribute("message", "SPEC.md generated.");
-        } catch (RuntimeException ex) {
-            appLog.error("SPEC", "SPEC.md generation failed for project #" + id, ex);
-            redirectAttributes.addFlashAttribute(
-                    "errorMessage", "The SPEC file could not be generated. Please try again.");
+        try { elicitation.submitAnswer(id, questionId, answer); }
+        catch (IllegalArgumentException | IllegalStateException ex) {
+            redirect.addFlashAttribute("errorMessage", ex.getMessage());
+            redirect.addFlashAttribute("answerQuestionRequest", request);
+            redirect.addFlashAttribute("draftQuestionId", questionId);
         }
         return "redirect:/projects/" + id + "/elicit";
     }
 
+    @PostMapping("/{id}/elicit/finish")
+    public String finish(@PathVariable Long id, @RequestParam long revision, RedirectAttributes redirect) {
+        try { elicitation.finish(id, revision); }
+        catch (IllegalStateException ex) { redirect.addFlashAttribute("errorMessage", ex.getMessage()); }
+        return "redirect:/projects/" + id + "/review";
+    }
+
+    @PostMapping("/{id}/export/spec")
+    public String exportSpec(@PathVariable Long id, RedirectAttributes redirect) {
+        try { exports.generateSpecMarkdown(id); }
+        catch (IllegalStateException ex) { redirect.addFlashAttribute("errorMessage", ex.getMessage()); }
+        return "redirect:/projects/" + id + "/review";
+    }
+
     @GetMapping("/{id}/export/spec/download")
     public ResponseEntity<String> downloadSpec(@PathVariable Long id) {
-        try {
-            ExportArtifact artifact = specExportService.latestSpec(id);
-            if (artifact == null) {
-                artifact = specExportService.generateSpecMarkdown(id);
-            }
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"SPEC.md\"")
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body(artifact.getContent());
-        } catch (RuntimeException ex) {
-            appLog.error("SPEC", "SPEC.md download failed for project #" + id, ex);
-            return ResponseEntity.status(503)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .body("The SPEC file could not be generated. Please try again.");
-        }
+        ExportArtifact artifact = exports.latestSpec(id);
+        if (artifact == null) return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.TEXT_PLAIN)
+                .body("Review and confirm the current plan before downloading its SPEC file.");
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"SPEC.md\"")
+                .contentType(new MediaType("text", "markdown", java.nio.charset.StandardCharsets.UTF_8)).body(artifact.getContent());
     }
 
     @ExceptionHandler({ProjectNotFoundException.class, ProjectAccessDeniedException.class})
-    public String handleProjectErrors() {
-        return "redirect:/projects";
-    }
+    public String handleProjectErrors() { return "redirect:/projects"; }
 
-    private void populateNewProjectModel(Model model) {
-        var providers = llmCredentialService.listForCurrentUser();
+    private void populate(Model model) {
+        var providers = credentials.listForCurrentUser();
         model.addAttribute("providers", providers);
-        model.addAttribute(
-                "hasConfiguredProvider",
-                providers.stream().anyMatch(LlmProviderView::isConfigured));
-        model.addAttribute("mandatoryCategories", TaxonomyCatalog.mandatoryCore());
-        model.addAttribute("optionalCategories", TaxonomyCatalog.optional());
-    }
-
-    private String resolveAnswer(String selectedChoice, String answerText) {
-        if (selectedChoice != null && !selectedChoice.isBlank() && !"__custom__".equals(selectedChoice)) {
-            return selectedChoice.trim();
-        }
-        return answerText == null ? null : answerText.trim();
-    }
-
-    private String userFacingLlmOrGeneric(RuntimeException ex, String fallback) {
-        String message = ex.getMessage();
-        if (message == null || message.isBlank()) {
-            return fallback;
-        }
-        if (message.contains("rate limited")
-                || message.contains("over quota")
-                || message.contains("API key")
-                || message.contains("credits")
-                || message.contains("temporarily unavailable")
-                || message.contains("blocked this request")) {
-            return message;
-        }
-        return fallback;
+        model.addAttribute("hasConfiguredProvider", providers.stream().anyMatch(LlmProviderView::isConfigured));
     }
 }

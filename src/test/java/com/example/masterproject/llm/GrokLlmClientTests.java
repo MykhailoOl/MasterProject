@@ -61,8 +61,8 @@ class GrokLlmClientTests {
         assertThat(result.ok()).isFalse();
         assertThat(result.message()).isEqualTo("Grok API key check failed.");
         assertThat(result.message()).doesNotContain("401", "Unauthorized", "Invalid API key");
-        verify(appLog).error(eq("LLM"), contains("status=401 Unauthorized"));
-        verify(appLog).error(eq("LLM"), contains("response={\"error\":\"Invalid API key\"}"));
+        verify(appLog).error(eq("LLM"), contains("status=401"));
+        org.mockito.Mockito.verify(appLog, org.mockito.Mockito.never()).error(eq("LLM"), contains("response="));
         server.verify();
     }
 
@@ -106,7 +106,7 @@ class GrokLlmClientTests {
                 .hasMessage("Grok could not generate a response because this account has no available credits.")
                 .hasMessageNotContaining("403")
                 .hasMessageNotContaining("permission-denied");
-        verify(appLog).error(eq("LLM"), contains("status=403 Forbidden"));
+        verify(appLog).error(eq("LLM"), contains("status=403"));
         server.verify();
     }
 

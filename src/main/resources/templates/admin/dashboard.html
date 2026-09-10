@@ -6,12 +6,15 @@
 <main class="container">
     <section class="project-header">
         <h1>Admin data</h1>
-        <p class="muted">Open a user or project for full details. Export study data when needed.</p>
+        <p class="muted">Study downloads include current-protocol randomized sessions, including unfinished sessions and generation failures.
+            Manual assignments, ordinary use and legacy projects are excluded. Taxonomy coverage is diagnostic.</p>
         <div class="actions">
             <a class="button" th:href="@{/admin/exports/study-data.json}">Download JSON</a>
             <a class="button secondary" th:href="@{/admin/exports/study-data-csv.zip}">
                 Download CSV archive
             </a>
+            <a class="button secondary" th:href="@{/admin/exports/study-data.json(includeExcluded=true)}">All data for diagnostics (JSON)</a>
+            <a class="button secondary" th:href="@{/admin/exports/study-data-csv.zip(includeExcluded=true)}">All data for diagnostics (CSV)</a>
         </div>
     </section>
 

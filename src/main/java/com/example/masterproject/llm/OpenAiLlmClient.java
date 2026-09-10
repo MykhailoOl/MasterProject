@@ -18,6 +18,11 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class OpenAiLlmClient implements LlmClient {
 
+    @org.springframework.beans.factory.annotation.Value("${app.llm.openai.model:}")
+    private String modelOverride = "";
+    @org.springframework.beans.factory.annotation.Value("${app.study.strict-model:false}")
+    private boolean strictModel;
+
     private static final List<String> PREFERRED_MODELS = List.of("gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini");
 
     private final RestClient restClient;
@@ -60,10 +65,10 @@ public class OpenAiLlmClient implements LlmClient {
         try {
             for (String model : models()) {
                 try {
-                    return completeChat(apiKey, model, systemPrompt, userPrompt, maxTokens);
+                    return completeChat(apiKey, model, systemPrompt, userPrompt, temperature, maxTokens);
                 } catch (RestClientResponseException ex) {
                     last = ex;
-                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                    if (strictModel || !LlmFailureMessages.canFallbackModel(ex)) {
                         throw completionFailure(ex);
                     }
                     appLog.warn(
@@ -89,20 +94,28 @@ public class OpenAiLlmClient implements LlmClient {
 
     private List<String> models() {
         LinkedHashSet<String> models = new LinkedHashSet<>();
-        models.add(settings.model());
+        models.add(modelOverride.isBlank() ? settings.model() : modelOverride.trim());
+        if (strictModel) return List.copyOf(models);
         models.addAll(PREFERRED_MODELS);
         return new ArrayList<>(models);
     }
 
-    private String completeChat(String apiKey, String model, String systemPrompt, String userPrompt, int maxTokens) {
+    private String completeChat(String apiKey, String model, String systemPrompt, String userPrompt, double temperature, int maxTokens) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", model);
         body.put("max_completion_tokens", maxTokens);
+        boolean supportsTemperature = model.matches("gpt-(?:3\\.5|4(?:\\.1|o)?)(?:-.*)?");
+        if (supportsTemperature) body.put("temperature", temperature);
+        String temperaturePolicy = supportsTemperature ? "sent" : "provider_default_no_override";
+        LlmCallTrace.request(model, supportsTemperature ? temperature : null, temperaturePolicy, maxTokens);
         ArrayNode messages = body.putArray("messages");
         messages.addObject().put("role", "system").put("content", systemPrompt);
         messages.addObject().put("role", "user").put("content", userPrompt);
 
         appLog.info("LLM", "Calling OpenAI chat completions with model " + model + ".");
+        appLog.info("LLM_CONFIG", "requested_temperature=" + temperature + " sent_temperature="
+                + (supportsTemperature ? temperature : "none") + " temperature_policy=" + temperaturePolicy
+                + " max_completion_tokens=" + maxTokens);
         String response = restClient.post()
                 .uri("/v1/chat/completions")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -110,7 +123,12 @@ public class OpenAiLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        JsonNode choice = objectMapper.readTree(response).path("choices").path(0);
+        JsonNode root = objectMapper.readTree(response);
+        LlmUsageLog.record(appLog, model, root);
+        JsonNode choice = root.path("choices").path(0);
+        if ("length".equalsIgnoreCase(choice.path("finish_reason").asText())) {
+            throw new IllegalStateException("OpenAI returned an incomplete response. Retry the check.");
+        }
         if ("content_filter".equalsIgnoreCase(choice.path("finish_reason").asText())) {
             throw new IllegalStateException("OpenAI blocked this request. Please rephrase and try again.");
         }

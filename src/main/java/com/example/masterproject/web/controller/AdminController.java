@@ -1,6 +1,10 @@
 package com.example.masterproject.web.controller;
 
 import com.example.masterproject.service.AdminDataService;
+import com.example.masterproject.service.StudyAssignmentService;
+import com.example.masterproject.model.enums.StudyCondition;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -23,9 +27,11 @@ public class AdminController {
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC);
 
     private final AdminDataService adminDataService;
+    private final StudyAssignmentService assignments;
 
-    public AdminController(AdminDataService adminDataService) {
+    public AdminController(AdminDataService adminDataService, StudyAssignmentService assignments) {
         this.adminDataService = adminDataService;
+        this.assignments = assignments;
     }
 
     @GetMapping
@@ -37,7 +43,19 @@ public class AdminController {
     @GetMapping("/users/{id}")
     public String userDetail(@PathVariable Long id, Model model) {
         model.addAttribute("userDetail", adminDataService.userDetail(id));
+        model.addAttribute("studyCondition", assignments.assignment(id));
         return "admin/user-detail";
+    }
+
+    @PostMapping("/users/{id}/study-condition")
+    public String assignCondition(@PathVariable Long id, @RequestParam StudyCondition condition) {
+        assignments.assign(id, condition);
+        return "redirect:/admin/users/" + id;
+    }
+    @PostMapping("/users/{id}/enroll")
+    public String enroll(@PathVariable Long id) {
+        assignments.randomize(id);
+        return "redirect:/admin/users/" + id;
     }
 
     @GetMapping("/projects/{id}")
@@ -48,20 +66,20 @@ public class AdminController {
 
     @GetMapping("/exports/study-data.json")
     @ResponseBody
-    public ResponseEntity<byte[]> downloadJson() {
+    public ResponseEntity<byte[]> downloadJson(@RequestParam(defaultValue = "false") boolean includeExcluded) {
         return download(
-                adminDataService.jsonExport(),
+                adminDataService.jsonExport(includeExcluded),
                 MediaType.APPLICATION_JSON,
-                "study-data-" + FILE_TIME.format(Instant.now()) + ".json");
+                (includeExcluded ? "diagnostic-all-data-" : "study-data-") + FILE_TIME.format(Instant.now()) + ".json");
     }
 
     @GetMapping("/exports/study-data-csv.zip")
     @ResponseBody
-    public ResponseEntity<byte[]> downloadCsvArchive() {
+    public ResponseEntity<byte[]> downloadCsvArchive(@RequestParam(defaultValue = "false") boolean includeExcluded) {
         return download(
-                adminDataService.csvArchive(),
+                adminDataService.csvArchive(includeExcluded),
                 MediaType.parseMediaType("application/zip"),
-                "study-data-" + FILE_TIME.format(Instant.now()) + "-csv.zip");
+                (includeExcluded ? "diagnostic-all-data-" : "study-data-") + FILE_TIME.format(Instant.now()) + "-csv.zip");
     }
 
     private ResponseEntity<byte[]> download(byte[] content, MediaType mediaType, String fileName) {

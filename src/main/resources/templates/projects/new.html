@@ -4,97 +4,45 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container narrow">
-    <h1>New project</h1>
-    <p class="muted">Describe your idea in everyday words, choose an AI helper, and pick the topics you want to cover. IdeaSpec will ask only about what is still missing.</p>
-
-        <div th:if="${#lists.isEmpty(providers) or !hasConfiguredProvider}" class="flash error-flash">
-            You need an AI helper API key before starting.
-            <a th:href="@{/settings/llm}">Open AI helpers to add one</a>.
-        </div>
-
-        <form th:action="@{/projects}"
-              th:object="${createProjectRequest}"
-              method="post"
-              class="form-card"
-              novalidate
-              th:attr="aria-disabled=${#lists.isEmpty(providers) or !hasConfiguredProvider}">
-            <div th:if="${#fields.hasGlobalErrors()}" class="flash error-flash">
-                <p th:each="err : ${#fields.globalErrors()}" th:text="${err}">Error</p>
-            </div>
-
-            <label for="initialIdea">Your idea</label>
-            <textarea id="initialIdea" th:field="*{initialIdea}" rows="6"
-                      th:classappend="${#fields.hasErrors('initialIdea')} ? 'input-error'"
-                      minlength="10" maxlength="5000" required
-                      placeholder="Example: A website where parents can see which nearby toy store still has a specific toy in stock."></textarea>
-            <p class="error" th:if="${#fields.hasErrors('initialIdea')}" th:errors="*{initialIdea}"></p>
-
-            <label for="llmProvider">AI helper</label>
-            <select id="llmProvider"
-                    th:field="*{llmProvider}"
-                    th:required="${hasConfiguredProvider}"
-                    th:disabled="${#lists.isEmpty(providers) or !hasConfiguredProvider}">
-                <option value="">Choose a helper</option>
-                <option th:each="providerView : ${providers}"
-                        th:value="${providerView.provider}"
-                        th:disabled="${!providerView.configured}"
-                        th:text="${providerView.displayName} + (${providerView.configured} ? '' : ' (not connected)')">
-                    OpenAI
-                </option>
+    <h1>Tell us about your idea</h1>
+    <p>You do not need to know how software is built. Start with what you want someone to be able to do.
+        We will work through the details one question at a time.</p>
+    <div th:if="${!hasConfiguredProvider}" class="flash">
+        Connect an AI helper before you begin. <a th:href="@{/settings/llm}">Set up your helper</a>.
+    </div>
+    <form th:action="@{/projects}" th:object="${createProjectRequest}" method="post" class="form-card">
+        <p class="error" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+        <p class="error" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+        <label for="initialIdea">What would you like to make?</label>
+        <textarea id="initialIdea" th:field="*{initialIdea}" rows="6" minlength="10" maxlength="5000" required
+                  placeholder="Describe your idea in your own words. A few sentences are enough."></textarea>
+        <p class="error" th:if="${#fields.hasErrors('initialIdea')}" th:errors="*{initialIdea}"></p>
+        <label for="llmProvider">AI helper</label>
+        <select id="llmProvider" th:field="*{llmProvider}" required>
+            <option value="">Choose your connected helper</option>
+            <option th:each="provider : ${providers}" th:value="${provider.provider}"
+                    th:disabled="${!provider.configured}" th:text="${provider.displayName}"></option>
+        </select>
+        <p class="error" th:if="${#fields.hasErrors('llmProvider')}" th:errors="*{llmProvider}"></p>
+        <div th:if="${currentUserAdmin}">
+            <label for="studyCondition">Research condition (administrator only)</label>
+            <select id="studyCondition" th:field="*{studyCondition}">
+                <option value="">Use participant assignment (ordinary guided if unassigned)</option>
+                <option value="GUIDED">Guided interview preview</option>
+                <option value="BASELINE">General-purpose interview</option>
             </select>
-            <p class="error" th:if="${#fields.hasErrors('llmProvider')}" th:errors="*{llmProvider}"></p>
-            <p class="hint" th:if="${#lists.isEmpty(providers) or !hasConfiguredProvider}">
-                No API key connected yet.
-                <a th:href="@{/settings/llm}">Go to AI helpers</a>
-                to add one, then come back here.
-            </p>
-
-            <fieldset class="fieldset">
-                <legend>Always included</legend>
-                <p class="muted">These topics help shape a useful first plan.</p>
-                <ul class="plain-list">
-                    <li th:each="item : ${mandatoryCategories}">
-                        <strong th:text="${item.displayName}">What you want</strong>
-                        — <span th:text="${item.description}">desc</span>
-                    </li>
-                </ul>
-                <p class="hint">At the end you will choose a project name and confirm a short summary.</p>
-            </fieldset>
-
-            <fieldset class="fieldset">
-                <legend>Optional topics</legend>
-                <p class="muted">Turn on only what matters for your idea. Skipped topics stay out of the final plan.</p>
-                <label class="check-row topic-option" th:each="item : ${optionalCategories}">
-                    <span class="check-copy">
-                        <strong th:text="${item.displayName}">How you will check it</strong>
-                        <span th:text="${item.description}">desc</span>
-                    </span>
-                    <span class="check-control">
-                        <input type="checkbox"
-                               th:field="*{optionalCategories}"
-                               th:value="${item.category}">
-                        <span class="check-mark" aria-hidden="true"></span>
-                    </span>
-                </label>
-            </fieldset>
-
-            <label class="check-row">
-                <span class="check-copy">Make questions easier to read (right-click a sentence to simplify it)</span>
-                <span class="check-control">
-                    <input type="checkbox" th:field="*{simplifyModeEnabled}">
-                    <span class="check-mark" aria-hidden="true"></span>
-                </span>
-            </label>
-
-            <div class="actions">
-                <a class="button secondary" th:href="@{/projects}">Cancel</a>
-                <button class="button"
-                        type="submit"
-                        th:disabled="${#lists.isEmpty(providers) or !hasConfiguredProvider}">
-                    Create and start
-                </button>
-            </div>
-        </form>
+        </div>
+        <label class="check-row">
+            <span class="check-copy">Enable help with difficult wording</span>
+            <input type="checkbox" th:field="*{simplifyModeEnabled}">
+        </label>
+        <p class="hint">You can be unsure, leave decisions for later, and correct anything we misunderstood.
+            You will review the plan before downloading it.</p>
+        <div class="actions">
+            <a class="button secondary" th:href="@{/projects}">Cancel</a>
+            <button class="button" type="submit" th:disabled="${!hasConfiguredProvider}">Create project</button>
+        </div>
+    </form>
 </main>
 </body>
 </html>

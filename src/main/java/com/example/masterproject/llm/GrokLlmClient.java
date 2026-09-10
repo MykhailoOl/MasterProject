@@ -17,6 +17,11 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class GrokLlmClient implements LlmClient {
 
+    @org.springframework.beans.factory.annotation.Value("${app.llm.grok.model:}")
+    private String modelOverride = "";
+    @org.springframework.beans.factory.annotation.Value("${app.study.strict-model:false}")
+    private boolean strictModel;
+
     private static final List<String> PREFERRED_MODELS = List.of("grok-4.6", "grok-4.5", "grok-4.3");
 
     private final RestClient restClient;
@@ -62,7 +67,7 @@ public class GrokLlmClient implements LlmClient {
                     return completeChat(apiKey, model, systemPrompt, userPrompt, temperature, maxTokens);
                 } catch (RestClientResponseException ex) {
                     last = ex;
-                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                    if (strictModel || !LlmFailureMessages.canFallbackModel(ex)) {
                         throw completionFailure(ex, "POST /v1/chat/completions");
                     }
                     appLog.warn(
@@ -92,7 +97,8 @@ public class GrokLlmClient implements LlmClient {
 
     private List<String> models() {
         LinkedHashSet<String> models = new LinkedHashSet<>();
-        models.add(settings.model());
+        models.add(modelOverride.isBlank() ? settings.model() : modelOverride.trim());
+        if (strictModel) return List.copyOf(models);
         models.addAll(PREFERRED_MODELS);
         return new ArrayList<>(models);
     }
@@ -108,11 +114,13 @@ public class GrokLlmClient implements LlmClient {
         body.put("model", model);
         body.put("temperature", temperature);
         body.put("max_tokens", maxTokens);
+        LlmCallTrace.request(model, temperature, "sent", maxTokens);
         ArrayNode messages = body.putArray("messages");
         messages.addObject().put("role", "system").put("content", systemPrompt);
         messages.addObject().put("role", "user").put("content", userPrompt);
 
         appLog.info("LLM", "Calling Grok chat completions with model " + model + ".");
+        appLog.info("LLM_CONFIG", "temperature=" + temperature + " max_tokens=" + maxTokens);
         String response = restClient.post()
                 .uri("/v1/chat/completions")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -120,7 +128,15 @@ public class GrokLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        JsonNode choice = objectMapper.readTree(response).path("choices").path(0);
+        JsonNode root = objectMapper.readTree(response);
+        LlmUsageLog.record(appLog, model, root);
+        if ("incomplete".equals(root.path("status").asText()) || "failed".equals(root.path("status").asText())) {
+            throw new IllegalStateException("Grok returned an incomplete response. Retry the check.");
+        }
+        JsonNode choice = root.path("choices").path(0);
+        if ("length".equalsIgnoreCase(choice.path("finish_reason").asText())) {
+            throw new IllegalStateException("Grok returned an incomplete response. Retry the check.");
+        }
         if ("content_filter".equalsIgnoreCase(choice.path("finish_reason").asText())) {
             throw new IllegalStateException("Grok blocked this request. Please rephrase and try again.");
         }
@@ -142,11 +158,13 @@ public class GrokLlmClient implements LlmClient {
         body.put("model", model);
         body.put("instructions", systemPrompt);
         body.put("max_output_tokens", maxTokens);
+        LlmCallTrace.request(model, temperature, "sent", maxTokens);
         body.put("temperature", temperature);
         body.put("store", false);
         body.putArray("input").addObject().put("role", "user").put("content", userPrompt);
 
         appLog.info("LLM", "Calling Grok responses with model " + model + ".");
+        appLog.info("LLM_CONFIG", "temperature=" + temperature + " max_output_tokens=" + maxTokens);
         String response = restClient.post()
                 .uri("/v1/responses")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -154,7 +172,12 @@ public class GrokLlmClient implements LlmClient {
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        String text = extractOutputText(objectMapper.readTree(response));
+        JsonNode root = objectMapper.readTree(response);
+        LlmUsageLog.record(appLog, model, root);
+        if ("incomplete".equals(root.path("status").asText()) || "failed".equals(root.path("status").asText())) {
+            throw new IllegalStateException("Grok returned an incomplete response. Retry the check.");
+        }
+        String text = extractOutputText(root);
         if (text == null || text.isBlank()) {
             throw new IllegalStateException("Grok returned an empty response");
         }

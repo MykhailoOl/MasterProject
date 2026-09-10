@@ -11,6 +11,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @ControllerAdvice(
         assignableTypes = {
             ProjectController.class,
+            ReviewController.class,
             HomeController.class,
             AuthController.class,
             ProfileController.class,
@@ -37,6 +38,21 @@ public class HtmlFailureAdvice {
         }
         appLog.error("APP", "Request to " + path + " failed", error);
         redirectAttributes.addFlashAttribute("errorMessage", userFacingMessage(error));
+        if ("/projects".equals(path) && "POST".equals(request.getMethod())) {
+            var draft = new com.example.masterproject.web.dto.CreateProjectRequest();
+            draft.setInitialIdea(request.getParameter("initialIdea"));
+            draft.setSimplifyModeEnabled("true".equals(request.getParameter("simplifyModeEnabled")));
+            try {
+                draft.setLlmProvider(com.example.masterproject.model.enums.LlmProvider.valueOf(request.getParameter("llmProvider")));
+            } catch (RuntimeException ignored) {
+            }
+            try {
+                draft.setStudyCondition(com.example.masterproject.model.enums.StudyCondition.valueOf(request.getParameter("studyCondition")));
+            } catch (RuntimeException ignored) {
+            }
+            redirectAttributes.addFlashAttribute("createProjectRequest", draft);
+            return "redirect:/projects/new";
+        }
         if (path.startsWith("/settings")) {
             return "redirect:/settings/llm";
         }
@@ -44,7 +60,18 @@ public class HtmlFailureAdvice {
             return "redirect:/admin";
         }
         if (path.startsWith("/projects/") && path.contains("/elicit")) {
+            if (path.matches("/projects/\\d+/elicit/\\d+")) {
+                var draft = new com.example.masterproject.web.dto.AnswerQuestionRequest();
+                draft.setAnswerText(request.getParameter("answerText"));
+                redirectAttributes.addFlashAttribute("answerQuestionRequest", draft);
+                redirectAttributes.addFlashAttribute("draftQuestionId", path.substring(path.lastIndexOf('/') + 1));
+            }
             return "redirect:" + path.replaceFirst("/elicit.*", "/elicit");
+        }
+        if (path.startsWith("/projects/") && path.contains("/review")) {
+            redirectAttributes.addFlashAttribute("correctionDraft", request.getParameter("correction"));
+            redirectAttributes.addFlashAttribute("titleDraft", request.getParameter("title"));
+            return "redirect:" + path.replaceFirst("/review.*", "/review");
         }
         if (path.startsWith("/projects")) {
             return "redirect:/projects";

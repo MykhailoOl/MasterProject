@@ -50,7 +50,8 @@ class AdminDataServiceTests {
             snapshotRepository,
             artifactRepository,
             userContextService,
-            new ObjectMapper());
+            new ObjectMapper(), mock(com.example.masterproject.repository.InterviewRevisionRepository.class),
+            mock(com.example.masterproject.repository.LlmCallAuditRepository.class));
 
     @BeforeEach
     void emptyData() {
@@ -69,7 +70,7 @@ class AdminDataServiceTests {
         User user = user("admin@example.com", "Admin", "$2a$secret-hash");
         when(userRepository.findAll(any(Sort.class))).thenReturn(List.of(user));
 
-        String json = new String(service.jsonExport(), StandardCharsets.UTF_8);
+        String json = new String(service.jsonExport(true), StandardCharsets.UTF_8);
 
         assertThat(json).contains("admin@example.com");
         assertThat(json).doesNotContain("passwordHash", "$2a$secret-hash");
@@ -80,7 +81,7 @@ class AdminDataServiceTests {
         User user = user("admin@example.com", "formula_user", "$2a$secret-hash");
         when(userRepository.findAll(any(Sort.class))).thenReturn(List.of(user));
 
-        Map<String, String> files = unzip(service.csvArchive());
+        Map<String, String> files = unzip(service.csvArchive(true));
 
         assertThat(files).containsOnlyKeys(
                 "users.csv",
@@ -88,9 +89,9 @@ class AdminDataServiceTests {
                 "sessions.csv",
                 "questions.csv",
                 "answers.csv",
-                "slots.csv",
-                "snapshots.csv",
-                "exports.csv");
+                "diagnostic-slots.csv",
+                "diagnostic-snapshots.csv",
+                "exports.csv", "revisions.csv", "manifest.json", "llm-calls.csv");
         assertThat(files.get("users.csv")).contains("formula_user");
         assertThat(files.get("users.csv")).doesNotContain("$2a$secret-hash");
     }

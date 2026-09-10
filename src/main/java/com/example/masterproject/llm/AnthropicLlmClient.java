@@ -18,6 +18,11 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class AnthropicLlmClient implements LlmClient {
 
+    @org.springframework.beans.factory.annotation.Value("${app.llm.anthropic.model:}")
+    private String modelOverride = "";
+    @org.springframework.beans.factory.annotation.Value("${app.study.strict-model:false}")
+    private boolean strictModel;
+
     private static final String ANTHROPIC_VERSION = "2023-06-01";
     private static final List<String> PREFERRED_MODELS = List.of("claude-haiku-4-5", "claude-3-5-haiku-latest");
 
@@ -65,7 +70,7 @@ public class AnthropicLlmClient implements LlmClient {
                     return completeMessages(apiKey, model, systemPrompt, userPrompt, temperature, maxTokens);
                 } catch (RestClientResponseException ex) {
                     last = ex;
-                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                    if (strictModel || !LlmFailureMessages.canFallbackModel(ex)) {
                         throw completionFailure(ex);
                     }
                     appLog.warn(
@@ -91,7 +96,8 @@ public class AnthropicLlmClient implements LlmClient {
 
     private List<String> models() {
         LinkedHashSet<String> models = new LinkedHashSet<>();
-        models.add(settings.model());
+        models.add(modelOverride.isBlank() ? settings.model() : modelOverride.trim());
+        if (strictModel) return List.copyOf(models);
         models.addAll(PREFERRED_MODELS);
         return new ArrayList<>(models);
     }
@@ -107,11 +113,13 @@ public class AnthropicLlmClient implements LlmClient {
         body.put("model", model);
         body.put("max_tokens", maxTokens);
         body.put("temperature", temperature);
+        LlmCallTrace.request(model, temperature, "sent", maxTokens);
         body.put("system", systemPrompt);
         ArrayNode messages = body.putArray("messages");
         messages.addObject().put("role", "user").put("content", userPrompt);
 
         appLog.info("LLM", "Calling Anthropic messages with model " + model + ".");
+        appLog.info("LLM_CONFIG", "temperature=" + temperature + " max_tokens=" + maxTokens);
         String response = restClient.post()
                 .uri("/v1/messages")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -121,6 +129,10 @@ public class AnthropicLlmClient implements LlmClient {
                 .retrieve()
                 .body(String.class);
         JsonNode root = objectMapper.readTree(response);
+        LlmUsageLog.record(appLog, model, root);
+        if ("max_tokens".equalsIgnoreCase(root.path("stop_reason").asText())) {
+            throw new IllegalStateException("Anthropic returned an incomplete response. Retry the check.");
+        }
         if ("refusal".equalsIgnoreCase(root.path("stop_reason").asText())) {
             throw new IllegalStateException("Anthropic blocked this request. Please rephrase and try again.");
         }

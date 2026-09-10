@@ -1,187 +1,62 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="_csrf" th:content="${_csrf.token}">
-    <meta name="_csrf_header" th:content="${_csrf.headerName}">
-    <title>Questions · IdeaSpec</title>
-    <link rel="icon" type="image/png" th:href="@{/images/ideaspec-logo.png}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" th:href="@{/css/app.css}">
-</head>
+<head th:replace="~{fragments/head :: head('Shape your idea')}"></head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container" th:classappend="${view.complete} ? '' : ' narrow'">
+<main class="container narrow">
+    <h1 th:text="${view.project.title}">Your project</h1>
     <div th:if="${message}" class="flash" th:text="${message}"></div>
-    <div th:if="${errorMessage}" class="flash error-flash" th:text="${errorMessage}"></div>
+    <div th:if="${errorMessage}" class="flash error-flash" role="alert" th:text="${errorMessage}"></div>
+    <p class="muted"><span th:text="${view.answeredCount}">0</span> answers saved.
+        We will ask up to <span th:text="${view.totalBudget}">24</span> questions. You can review sooner.</p>
 
-    <h1 th:text="${view.project.title}">Project</h1>
-    <p class="muted" th:unless="${view.complete}">
-        Progress:
-        <span th:text="${view.answeredCount}">0</span>
-        /
-        <span th:text="${view.totalBudget}">0</span>
-        answers so far
-    </p>
-
-    <section th:if="${view.complete}" class="complete-layout">
-        <div class="complete-video-panel">
-            <h2>What to do with your plan</h2>
-            <p class="muted">Watch this short guide, then download your SPEC file and open it in Cursor.</p>
-            <div class="complete-video-frame">
-                <video controls playsinline preload="metadata"
-                       th:attr="aria-label='Guide for using SPEC.md with Cursor'">
-                    <source th:src="@{/videos/spec-cursor-guide.mp4}" type="video/mp4">
-                </video>
-                <p class="muted complete-video-placeholder">
-                    Add your recording as
-                    <code>src/main/resources/static/videos/spec-cursor-guide.mp4</code>
-                    (about 1–2 minutes).
-                </p>
-            </div>
-        </div>
-        <div class="complete-actions-panel form-card">
-            <h2>Your plan is ready</h2>
-            <p class="muted" th:if="${latestSpec != null}">Your SPEC file is ready. Download it, then choose what to do next.</p>
-            <p class="muted" th:if="${latestSpec == null}">Preparing your SPEC file…</p>
-            <div class="actions stacked-actions">
-                <a class="button"
-                   th:if="${latestSpec != null}"
-                   th:href="@{/projects/{id}/export/spec/download(id=${view.project.id})}">Download SPEC file</a>
-                <form th:action="@{/projects/{id}/export/spec(id=${view.project.id})}" method="post">
-                    <button class="button secondary" type="submit">Create SPEC file again</button>
-                </form>
-                <button class="button secondary" type="button" disabled title="Coming soon">Upgrade project</button>
-                <button class="button secondary" type="button" disabled title="Coming soon">Update cybersecurity</button>
-                <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Project page</a>
-            </div>
-            <p class="hint">Upgrade project and Update cybersecurity will be available later.</p>
-        </div>
-    </section>
-
-    <section th:if="${!view.complete && view.currentQuestion != null}" class="form-card">
-        <p class="badge" th:text="${view.categoryLabel}">Goal</p>
-        <div id="question-text"
-             class="question-text"
-             th:attr="data-simplify=${view.project.simplifyModeEnabled}"
-             th:text="${view.currentQuestion.questionText}">
-            Question
-        </div>
-        <p class="hint" th:if="${view.project.simplifyModeEnabled and !view.titleChoiceStep}">
-            Select text in the question, then right-click and choose Simplify.
-        </p>
-
-        <form th:action="@{/projects/{id}/elicit/{qid}(id=${view.project.id}, qid=${view.currentQuestion.id})}"
-              th:object="${answerQuestionRequest}"
-              method="post">
-            <div th:if="${view.titleChoiceStep}">
-                <p class="muted">Pick a suggested title or write your own.</p>
-                <label class="check-row" th:each="choice : ${view.choices}">
-                    <input type="radio"
-                           name="selectedChoice"
-                           th:value="${choice}"
-                           th:checked="${selectedChoice == choice}"
-                           required>
-                    <span th:text="${choice}">Title option</span>
-                </label>
-                <label class="check-row">
-                    <input type="radio"
-                           name="selectedChoice"
-                           value="__custom__"
-                           id="custom-title-choice"
-                           th:checked="${selectedChoice == '__custom__'}"
-                           required>
-                    <span>Write my own title</span>
-                </label>
-                <label for="answerText">Custom title</label>
-                <input id="answerText" type="text" th:field="*{answerText}" maxlength="255" autocomplete="off">
-            </div>
-
-            <div th:unless="${view.titleChoiceStep}">
-                <label for="answerText" th:text="${view.overallIdeaStep} ? 'Overall idea' : 'Your answer'">Your answer</label>
-                <textarea id="answerText"
-                          th:field="*{answerText}"
-                          rows="5"
-                          required
-                          maxlength="5000"
-                          th:attr="placeholder=${view.answerExample}"></textarea>
-            </div>
-
-            <div th:if="${view.answerExample != null and !view.answerExample.isBlank()}"
-                 class="answer-example"
-                 id="answer-example">
-                <div class="answer-example-header">
-                    <strong>Example answer</strong>
-                    <button type="button"
-                            class="button secondary"
-                            id="use-answer-example"
-                            th:attr="data-example=${view.answerExample}">
-                        Use example
-                    </button>
-                </div>
-                <p th:text="${view.answerExample}">Example</p>
-            </div>
-
-            <p class="error" th:if="${#fields.hasErrors('answerText')}" th:errors="*{answerText}"></p>
-            <div class="actions">
-                <button class="button" type="submit">Submit answer</button>
-                <a class="button secondary" th:href="@{/projects/{id}(id=${view.project.id})}">Back</a>
-            </div>
-        </form>
-
-        <form class="fast-finish-form"
-              th:action="@{/projects/{id}/elicit/fast-finish(id=${view.project.id})}"
-              method="post">
-            <button class="button secondary" type="submit">Fast finish (dev)</button>
-            <p class="hint">Fills remaining questions with generated example answers for testing.</p>
-        </form>
-    </section>
-</main>
-
-<div id="simplify-menu" class="context-menu" hidden>
-    <button type="button" id="simplify-action">Simplify</button>
-</div>
-
-<div id="simplify-popup" class="simplify-popup" hidden>
-    <div class="simplify-popup-header">
-        <span>Simplified</span>
-        <button type="button" id="simplify-close" class="simplify-popup-close" aria-label="Close">×</button>
+    <div th:if="${view.needsAssessment}" class="flash">
+        Your notes are saved. Some still need to be checked before we can prepare your plan.
     </div>
-    <p id="simplify-output" class="simplify-output"></p>
-    <p id="simplify-error" class="error" hidden></p>
-</div>
 
-<script th:inline="javascript">
-    const projectId = /*[[${view.project.id}]]*/ 0;
-    const simplifyEnabled = /*[[${view.project.simplifyModeEnabled}]]*/ false;
-    const titleChoices = document.querySelectorAll('input[name="selectedChoice"]');
-    const customTitleChoice = document.getElementById('custom-title-choice');
-    const customTitleInput = document.getElementById('answerText');
-    const useExampleButton = document.getElementById('use-answer-example');
+    <section th:if="${view.currentQuestion != null}" class="form-card">
+        <h2 id="question-text" th:text="${view.currentQuestion.questionText}">Question</h2>
+        <div th:if="${view.project.simplifyModeEnabled}">
+            <button type="button" class="button secondary" id="simplify-question"
+                    th:attr="data-url=@{/api/projects/{id}/simplify(id=${view.project.id})}">Use simpler words</button>
+            <p id="simplified-question" role="status" aria-live="polite"></p>
+        </div>
+        <details class="answer-help">
+            <summary>Help me answer this</summary>
+            <p th:text="${view.answerHelp}">A short answer is enough.</p>
+            <p>Imagine someone trying your idea for the first time. Describe what you would want them to do or see.
+                It is fine if you have never used anything similar.</p>
+        </details>
+        <form th:action="@{/projects/{id}/elicit/{qid}(id=${view.project.id},qid=${view.currentQuestion.id})}"
+              th:object="${answerQuestionRequest}" method="post" data-busy-form>
+            <label for="answerText">Your answer</label>
+            <textarea id="answerText" th:field="*{answerText}" rows="5" maxlength="4500" required
+                      placeholder="Write what you mean. You do not need technical words."></textarea>
+            <div class="actions">
+                <button class="button" type="submit" name="answerAction" value="ANSWER">Save and continue</button>
+                <button class="button secondary" type="submit" name="answerAction" value="UNSURE" formnovalidate>
+                    I'm not sure yet
+                </button>
+            </div>
+            <p class="hint busy-message" hidden role="status">Saving your answer and checking the next step…</p>
+        </form>
+    </section>
 
-    if (customTitleChoice && customTitleInput) {
-        const syncCustomTitle = () => {
-            customTitleInput.required = customTitleChoice.checked;
-        };
-        titleChoices.forEach(choice => choice.addEventListener('change', syncCustomTitle));
-        syncCustomTitle();
-    }
+    <section th:if="${view.currentQuestion == null}" class="form-card">
+        <h2 th:text="${view.needsAssessment} ? 'Check your saved notes' : 'Ready when you are'"></h2>
+        <p>Take your time. Short answers are enough, and you can correct your plan later.</p>
+        <form th:action="@{/projects/{id}/elicit/next(id=${view.project.id})}" method="post" data-busy-form>
+            <button class="button" type="submit" th:text="${view.needsAssessment} ? 'Check notes and continue' : 'Start questions'"></button>
+            <p class="hint busy-message" hidden role="status">Checking your notes and preparing a question…</p>
+        </form>
+    </section>
 
-    if (useExampleButton && customTitleInput) {
-        useExampleButton.addEventListener('click', () => {
-            const example = useExampleButton.getAttribute('data-example') || '';
-            customTitleInput.value = example;
-            if (customTitleChoice) {
-                customTitleChoice.checked = true;
-                customTitleInput.required = true;
-            }
-            customTitleInput.focus();
-        });
-    }
-</script>
-<script th:src="@{/js/simplify.js}"></script>
+    <form th:action="@{/projects/{id}/elicit/finish(id=${view.project.id})}" method="post" class="actions">
+        <input type="hidden" name="revision" th:value="${view.project.interviewRevision}">
+        <button class="button secondary" type="submit">Review what we have</button>
+        <a th:href="@{/projects}">Save for later</a>
+    </form>
+</main>
+<script th:src="@{/js/interview.js}"></script>
 </body>
 </html>

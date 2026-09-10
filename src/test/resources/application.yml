@@ -2,17 +2,33 @@ spring:
   profiles:
     default: test
   datasource:
-    url: jdbc:h2:mem:thesis_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    url: jdbc:h2:mem:thesis_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;NON_KEYWORDS=VALUE
     username: sa
     password:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        hbm2ddl:
+          halt_on_error: true
   flyway:
     enabled: false
 
+logging:
+  file:
+    name: build/test-logs/application.log
+
 app:
+  study:
+    strict-model: true
+    provider: OPENAI
+  llm:
+    openai:
+      model: gpt-5-mini
+  audit:
+    path: build/test-logs/app-steps.log
   browser:
     launch: false
     url: http://localhost:8080

@@ -18,6 +18,26 @@ import java.time.Instant;
 @Entity
 @Table(name = "elicitation_sessions")
 public class ElicitationSession {
+    @Column(name = "assignment_method", nullable = false, length = 32)
+    private String assignmentMethod = "UNASSIGNED";
+    @Column(name = "question_budget", nullable = false)
+    private int questionBudget = com.example.masterproject.model.interview.InterviewProtocol.QUESTION_BUDGET;
+    @Column(name = "end_reason", length = 32)
+    private String endReason;
+    @Column(name = "study_model")
+    private String studyModel;
+    @Column(name = "study_enrolled", nullable = false)
+    private boolean studyEnrolled;
+    public String getAssignmentMethod() { return assignmentMethod; }
+    public void setAssignmentMethod(String value) { assignmentMethod = value; }
+    public int getQuestionBudget() { return questionBudget; }
+    public void setQuestionBudget(int value) { questionBudget = value; }
+    public String getEndReason() { return endReason; }
+    public void setEndReason(String value) { endReason = value; }
+    public String getStudyModel() { return studyModel; }
+    public void setStudyModel(String value) { studyModel = value; }
+    public boolean isStudyEnrolled() { return studyEnrolled; }
+    public void setStudyEnrolled(boolean value) { studyEnrolled = value; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

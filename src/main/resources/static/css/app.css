@@ -886,12 +886,6 @@ h3,
     width: 100%;
 }
 
-.fast-finish-form {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px dashed var(--border);
-}
-
 .narrow-block {
     margin-top: 2rem;
     max-width: 720px;

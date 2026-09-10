@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  thymeleaf:
+    cache: true
+app:
+  seed:
+    enabled: false
+  dev:
+    quick-admin-login: false
+  encryption:
+    secret: ${APP_ENCRYPTION_SECRET}

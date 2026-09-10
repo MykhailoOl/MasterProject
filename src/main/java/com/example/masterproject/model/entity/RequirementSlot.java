@@ -16,7 +16,6 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
 @Entity
@@ -37,7 +36,6 @@ public class RequirementSlot {
     @Column(nullable = false)
     private RequirementCategory category;
 
-    @Size(max = 5000)
     @Column(columnDefinition = "TEXT")
     private String value;
 

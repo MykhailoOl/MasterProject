@@ -21,10 +21,7 @@ import com.example.masterproject.web.dto.ProjectSummaryResponse;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,28 +35,30 @@ public class ProjectService {
     private final ElicitationSessionRepository sessionRepository;
     private final RequirementSlotRepository requirementSlotRepository;
     private final ProjectCategoryRepository projectCategoryRepository;
-    private final RequirementAssessmentService requirementAssessmentService;
+    private final InterviewDocumentCodec documentCodec;
     private final UserContextService userContextService;
     private final LlmCredentialService llmCredentialService;
     private final AppLog appLog;
+    private final StudyProtocol studyProtocol;
 
     public ProjectService(
             ProjectRepository projectRepository,
             ElicitationSessionRepository sessionRepository,
             RequirementSlotRepository requirementSlotRepository,
             ProjectCategoryRepository projectCategoryRepository,
-            RequirementAssessmentService requirementAssessmentService,
+            InterviewDocumentCodec documentCodec,
             UserContextService userContextService,
             LlmCredentialService llmCredentialService,
-            AppLog appLog) {
+            AppLog appLog, StudyProtocol studyProtocol) {
         this.projectRepository = projectRepository;
         this.sessionRepository = sessionRepository;
         this.requirementSlotRepository = requirementSlotRepository;
         this.projectCategoryRepository = projectCategoryRepository;
-        this.requirementAssessmentService = requirementAssessmentService;
+        this.documentCodec = documentCodec;
         this.userContextService = userContextService;
         this.llmCredentialService = llmCredentialService;
         this.appLog = appLog;
+        this.studyProtocol = studyProtocol;
     }
 
     @Transactional
@@ -70,17 +69,10 @@ public class ProjectService {
             throw new IllegalStateException("Configure and verify an API key for " + provider + " first.");
         }
 
-        Set<RequirementCategory> enabledCore = new LinkedHashSet<>();
-        TaxonomyCatalog.mandatoryCore().forEach(definition -> enabledCore.add(definition.category()));
-        if (request.getOptionalCategories() != null) {
-            request.getOptionalCategories().stream()
-                    .filter(category -> !TaxonomyCatalog.require(category).mandatory())
-                    .forEach(enabledCore::add);
-        }
-
-        List<RequirementCategory> ordered = new ArrayList<>();
-        ordered.addAll(enabledCore);
-        TaxonomyCatalog.closingMandatory().forEach(definition -> ordered.add(definition.category()));
+        List<RequirementCategory> ordered = TaxonomyCatalog.all().stream()
+                .filter(TaxonomyCatalog.Definition::includeInSpecBody)
+                .map(TaxonomyCatalog.Definition::category).toList();
+        if (request.getStudyCondition() != null) userContextService.requireAdmin();
 
         Project project = new Project();
         project.setOwner(owner);
@@ -91,14 +83,23 @@ public class ProjectService {
         project.setSimplifyModeEnabled(request.isSimplifyModeEnabled());
         project.setCreatedAt(Instant.now());
         project.setUpdatedAt(Instant.now());
+        project.setInterviewDocument(documentCodec.write(
+                com.example.masterproject.model.interview.InterviewDocument.empty()));
         Project savedProject = projectRepository.save(project);
 
         ElicitationSession session = new ElicitationSession();
         session.setProject(savedProject);
-        session.setConditionTag(StudyCondition.GUIDED);
+        StudyCondition condition = request.getStudyCondition() == null ? owner.getStudyCondition() : request.getStudyCondition();
+        session.setConditionTag(condition == null ? StudyCondition.GUIDED : condition);
+        session.setAssignmentMethod(request.getStudyCondition() != null ? "ADMIN_PREVIEW" : owner.getAssignmentMethod());
+        session.setStudyEnrolled(request.getStudyCondition() == null && condition != null
+                && java.util.Set.of("MANUAL", "RANDOMIZED").contains(owner.getAssignmentMethod()));
+        if (session.isStudyEnrolled()) {
+            session.setStudyModel(studyProtocol.configuredModel(provider));
+            if (request.isSimplifyModeEnabled()) throw new IllegalStateException("Study interviews use the same wording support setting. Leave wording help disabled.");
+        }
         sessionRepository.save(session);
 
-        List<RequirementSlot> slots = new ArrayList<>();
         for (RequirementCategory category : ordered) {
             TaxonomyCatalog.Definition definition = TaxonomyCatalog.require(category);
 
@@ -114,19 +115,11 @@ public class ProjectService {
             slot.setProject(savedProject);
             slot.setCategory(category);
             slot.setValue(null);
-            slot.setAssessmentJson(requirementAssessmentService.emptyAssessmentJson(definition));
+            slot.setAssessmentJson("[]");
             slot.setCompleteness(0.0);
             slot.setSource(RequirementSource.USER);
             slot.setUpdatedAt(Instant.now());
-            slots.add(requirementSlotRepository.save(slot));
-        }
-        try {
-            requirementAssessmentService.initializeFromIdea(savedProject, slots);
-        } catch (RuntimeException ex) {
-            appLog.warn(
-                    "PROJECT",
-                    "Project #" + savedProject.getId()
-                            + " was created without initial extraction because the provider was unavailable.");
+            requirementSlotRepository.save(slot);
         }
 
         appLog.info(

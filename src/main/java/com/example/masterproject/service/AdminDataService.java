@@ -10,6 +10,7 @@ import com.example.masterproject.repository.ProjectRepository;
 import com.example.masterproject.repository.QuestionRepository;
 import com.example.masterproject.repository.RequirementSlotRepository;
 import com.example.masterproject.repository.UserRepository;
+import com.example.masterproject.repository.InterviewRevisionRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
@@ -76,7 +77,11 @@ public class AdminDataService {
             String llmProvider,
             boolean simplifyModeEnabled,
             Instant createdAt,
-            Instant updatedAt) {
+            Instant updatedAt,
+            long interviewRevision,
+            long reviewedRevision,
+            JsonNode interviewDocument,
+            String collectionProtocol) {
     }
 
     public record SessionExportRow(
@@ -84,7 +89,8 @@ public class AdminDataService {
             Long projectId,
             String conditionTag,
             Instant startedAt,
-            Instant completedAt) {
+            Instant completedAt,
+            boolean studyEnrolled, String assignmentMethod, int questionBudget, String studyModel, String endReason) {
     }
 
     public record QuestionExportRow(
@@ -96,14 +102,17 @@ public class AdminDataService {
             String simplifiedText,
             String optionsJson,
             int questionOrder,
-            Instant createdAt) {
+            Instant createdAt,
+            String questionKind,
+            String focusCapability,
+            String generationOrigin, String generationReason, String llmCallId, String promptVersion) {
     }
 
     public record AnswerExportRow(
             Long id,
             Long questionId,
             String answerText,
-            Instant answeredAt) {
+            Instant answeredAt, String provenance) {
     }
 
     public record SlotExportRow(
@@ -134,10 +143,17 @@ public class AdminDataService {
             Long projectId,
             String exportType,
             String content,
-            Instant generatedAt) {
+            Instant generatedAt,
+            Long sourceRevision) {
     }
 
+    public record RevisionExportRow(Long id, Long projectId, long revision, String eventType,
+                                    JsonNode document, Instant createdAt) {}
+
     public record StudyExport(
+            String datasetScope,
+            String metricPurpose,
+            List<ExcludedProject> excludedProjects,
             Instant generatedAt,
             List<UserExportRow> users,
             List<ProjectExportRow> projects,
@@ -146,8 +162,11 @@ public class AdminDataService {
             List<AnswerExportRow> answers,
             List<SlotExportRow> slots,
             List<SnapshotExportRow> snapshots,
-            List<ArtifactExportRow> exports) {
+            List<ArtifactExportRow> exports,
+            List<RevisionExportRow> revisions,
+            List<com.example.masterproject.model.entity.LlmCallAudit> llmCalls) {
     }
+    public record ExcludedProject(Long projectId, String reason) {}
 
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
@@ -159,6 +178,8 @@ public class AdminDataService {
     private final ExportArtifactRepository artifactRepository;
     private final UserContextService userContextService;
     private final ObjectMapper objectMapper;
+    private final InterviewRevisionRepository revisionRepository;
+    private final com.example.masterproject.repository.LlmCallAuditRepository callRepository;
 
     public AdminDataService(
             UserRepository userRepository,
@@ -170,7 +191,9 @@ public class AdminDataService {
             CompletenessSnapshotRepository snapshotRepository,
             ExportArtifactRepository artifactRepository,
             UserContextService userContextService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            InterviewRevisionRepository revisionRepository,
+            com.example.masterproject.repository.LlmCallAuditRepository callRepository) {
         this.userRepository = userRepository;
         this.projectRepository = projectRepository;
         this.sessionRepository = sessionRepository;
@@ -181,6 +204,8 @@ public class AdminDataService {
         this.artifactRepository = artifactRepository;
         this.userContextService = userContextService;
         this.objectMapper = objectMapper;
+        this.revisionRepository = revisionRepository;
+        this.callRepository = callRepository;
     }
 
     @Transactional(readOnly = true)
@@ -327,9 +352,14 @@ public class AdminDataService {
 
     @Transactional(readOnly = true)
     public byte[] jsonExport() {
+        return jsonExport(false);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] jsonExport(boolean includeExcluded) {
         userContextService.requireAdmin();
         try {
-            return objectMapper.writeValueAsBytes(collectExport());
+            return objectMapper.writeValueAsBytes(collectExport(includeExcluded));
         } catch (Exception ex) {
             throw new IllegalStateException("Could not create JSON export", ex);
         }
@@ -337,10 +367,19 @@ public class AdminDataService {
 
     @Transactional(readOnly = true)
     public byte[] csvArchive() {
+        return csvArchive(false);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] csvArchive(boolean includeExcluded) {
         userContextService.requireAdmin();
-        StudyExport data = collectExport();
+        StudyExport data = collectExport(includeExcluded);
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
                 ZipOutputStream zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry("manifest.json"));
+            zip.write(objectMapper.writeValueAsBytes(Map.of("datasetScope", data.datasetScope(),
+                    "metricPurpose", data.metricPurpose(), "excludedProjects", data.excludedProjects())));
+            zip.closeEntry();
             addCsv(zip, "users.csv",
                     List.of("id", "email", "username", "role", "created_at"),
                     data.users().stream()
@@ -353,7 +392,7 @@ public class AdminDataService {
                             .toList());
             addCsv(zip, "projects.csv",
                     List.of("id", "owner_id", "title", "initial_idea", "status", "llm_provider",
-                            "simplify_mode_enabled", "created_at", "updated_at"),
+                            "simplify_mode_enabled", "created_at", "updated_at", "interview_revision", "reviewed_revision", "interview_document", "collection_protocol"),
                     data.projects().stream()
                             .map(row -> List.of(
                                     row.id(),
@@ -364,21 +403,21 @@ public class AdminDataService {
                                     nullable(row.llmProvider()),
                                     row.simplifyModeEnabled(),
                                     row.createdAt(),
-                                    row.updatedAt()))
+                                    row.updatedAt(), row.interviewRevision(), row.reviewedRevision(), nullable(row.interviewDocument()), row.collectionProtocol()))
                             .toList());
             addCsv(zip, "sessions.csv",
-                    List.of("id", "project_id", "condition_tag", "started_at", "completed_at"),
+                    List.of("id", "project_id", "condition_tag", "started_at", "completed_at", "study_enrolled", "assignment_method", "question_budget", "study_model", "end_reason"),
                     data.sessions().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.projectId(),
                                     row.conditionTag(),
                                     row.startedAt(),
-                                    nullable(row.completedAt())))
+                                    nullable(row.completedAt()), row.studyEnrolled(), row.assignmentMethod(), row.questionBudget(), nullable(row.studyModel()), nullable(row.endReason())))
                             .toList());
             addCsv(zip, "questions.csv",
                     List.of("id", "session_id", "category", "focus_criterion", "question_text",
-                            "simplified_text", "options_json", "question_order", "created_at"),
+                            "simplified_text", "options_json", "question_order", "created_at", "question_kind", "focus_capability", "generation_origin", "generation_reason", "llm_call_id", "prompt_version"),
                     data.questions().stream()
                             .map(row -> List.of(
                                     row.id(),
@@ -389,18 +428,18 @@ public class AdminDataService {
                                     nullable(row.simplifiedText()),
                                     nullable(row.optionsJson()),
                                     row.questionOrder(),
-                                    row.createdAt()))
+                                    row.createdAt(), row.questionKind(), nullable(row.focusCapability()), row.generationOrigin(), nullable(row.generationReason()), nullable(row.llmCallId()), nullable(row.promptVersion())))
                             .toList());
             addCsv(zip, "answers.csv",
-                    List.of("id", "question_id", "answer_text", "answered_at"),
+                    List.of("id", "question_id", "answer_text", "answered_at", "provenance"),
                     data.answers().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.questionId(),
                                     row.answerText(),
-                                    row.answeredAt()))
+                                    row.answeredAt(), row.provenance()))
                             .toList());
-            addCsv(zip, "slots.csv",
+            addCsv(zip, "diagnostic-slots.csv",
                     List.of("id", "project_id", "category", "value", "assessment_json",
                             "completeness", "source", "updated_at"),
                     data.slots().stream()
@@ -414,7 +453,7 @@ public class AdminDataService {
                                     row.source(),
                                     row.updatedAt()))
                             .toList());
-            addCsv(zip, "snapshots.csv",
+            addCsv(zip, "diagnostic-snapshots.csv",
                     List.of("id", "project_id", "session_id", "answer_id", "answered_category",
                             "sequence_number", "scores_json", "total_score", "captured_at"),
                     data.snapshots().stream()
@@ -430,15 +469,23 @@ public class AdminDataService {
                                     row.capturedAt()))
                             .toList());
             addCsv(zip, "exports.csv",
-                    List.of("id", "project_id", "export_type", "content", "generated_at"),
+                    List.of("id", "project_id", "export_type", "content", "generated_at", "source_revision"),
                     data.exports().stream()
                             .map(row -> List.of(
                                     row.id(),
                                     row.projectId(),
                                     row.exportType(),
                                     row.content(),
-                                    row.generatedAt()))
+                                    row.generatedAt(), nullable(row.sourceRevision())))
                             .toList());
+            addCsv(zip, "revisions.csv", List.of("id", "project_id", "revision", "event_type", "document", "created_at"),
+                    data.revisions().stream().map(row -> List.of(row.id(), row.projectId(), row.revision(),
+                            row.eventType(), row.document().toString(), row.createdAt())).toList());
+            addCsv(zip, "llm-calls.csv", List.of("id", "project_id", "phase", "prompt_version", "provider", "outcome",
+                            "requested_temperature", "duration_ms", "metadata_json", "created_at"),
+                    data.llmCalls().stream().map(row -> List.of(row.getId(), row.getProjectId(), row.getPhase(),
+                            row.getPromptVersion(), row.getProvider(), row.getOutcome(), row.getRequestedTemperature(),
+                            row.getDurationMs(), row.getMetadataJson(), row.getCreatedAt())).toList());
             zip.finish();
             return output.toByteArray();
         } catch (IOException ex) {
@@ -446,8 +493,18 @@ public class AdminDataService {
         }
     }
 
-    private StudyExport collectExport() {
+    private StudyExport collectExport(boolean includeExcluded) {
+        var allProjects = projectRepository.findAllByOrderByIdAsc();
+        var allSessions = sessionRepository.findAll(Sort.by("id"));
+        var enrolledIds = allSessions.stream().filter(s -> s.isStudyEnrolled() && "RANDOMIZED".equals(s.getAssignmentMethod()))
+                .map(s -> s.getProject().getId()).collect(Collectors.toSet());
+        var excluded = allProjects.stream().filter(p -> !p.isCurrentProtocol() || !enrolledIds.contains(p.getId()))
+                .map(p -> new ExcludedProject(p.getId(), !p.isCurrentProtocol() ? "LEGACY_COLLECTION_PROTOCOL" : "NOT_RANDOMIZED_STUDY_SESSION")).toList();
+        var selected = allProjects.stream().filter(p -> includeExcluded || (p.isCurrentProtocol() && enrolledIds.contains(p.getId()))).toList();
+        var projectIds = selected.stream().map(Project::getId).collect(Collectors.toSet());
+        var userIds = selected.stream().map(p -> p.getOwner().getId()).collect(Collectors.toSet());
         List<UserExportRow> users = userRepository.findAll(Sort.by("id")).stream()
+                .filter(user -> includeExcluded || userIds.contains(user.getId()))
                 .map(user -> new UserExportRow(
                         user.getId(),
                         user.getEmail(),
@@ -455,7 +512,7 @@ public class AdminDataService {
                         user.getRole().name(),
                         user.getCreatedAt()))
                 .toList();
-        List<ProjectExportRow> projects = projectRepository.findAllByOrderByIdAsc().stream()
+        List<ProjectExportRow> projects = selected.stream()
                 .map(project -> new ProjectExportRow(
                         project.getId(),
                         project.getOwner().getId(),
@@ -465,17 +522,19 @@ public class AdminDataService {
                         project.getLlmProvider() == null ? null : project.getLlmProvider().name(),
                         project.isSimplifyModeEnabled(),
                         project.getCreatedAt(),
-                        project.getUpdatedAt()))
+                        project.getUpdatedAt(), project.getInterviewRevision(), project.getReviewedRevision(),
+                        parseJson(project.getInterviewDocument()), project.getCollectionProtocol()))
                 .toList();
-        List<SessionExportRow> sessions = sessionRepository.findAll(Sort.by("id")).stream()
+        List<SessionExportRow> sessions = allSessions.stream().filter(s -> projectIds.contains(s.getProject().getId()))
                 .map(session -> new SessionExportRow(
                         session.getId(),
                         session.getProject().getId(),
                         session.getConditionTag().name(),
                         session.getStartedAt(),
-                        session.getCompletedAt()))
+                        session.getCompletedAt(), session.isStudyEnrolled(), session.getAssignmentMethod(), session.getQuestionBudget(), session.getStudyModel(), session.getEndReason()))
                 .toList();
         List<QuestionExportRow> questions = questionRepository.findAll(Sort.by("id")).stream()
+                .filter(q -> projectIds.contains(q.getSession().getProject().getId()))
                 .map(question -> new QuestionExportRow(
                         question.getId(),
                         question.getSession().getId(),
@@ -485,16 +544,18 @@ public class AdminDataService {
                         question.getSimplifiedText(),
                         question.getOptionsJson(),
                         question.getQuestionOrder(),
-                        question.getCreatedAt()))
+                        question.getCreatedAt(), question.getQuestionKind(), question.getFocusCapability(), question.getGenerationOrigin(), question.getGenerationReason(), question.getLlmCallId(), question.getPromptVersion()))
                 .toList();
         List<AnswerExportRow> answers = answerRepository.findAll(Sort.by("id")).stream()
+                .filter(a -> projectIds.contains(a.getQuestion().getSession().getProject().getId()))
                 .map(answer -> new AnswerExportRow(
                         answer.getId(),
                         answer.getQuestion().getId(),
                         answer.getAnswerText(),
-                        answer.getAnsweredAt()))
+                        answer.getAnsweredAt(), answer.getProvenance()))
                 .toList();
         List<SlotExportRow> slots = slotRepository.findAll(Sort.by("id")).stream()
+                .filter(s -> projectIds.contains(s.getProject().getId()))
                 .map(slot -> new SlotExportRow(
                         slot.getId(),
                         slot.getProject().getId(),
@@ -506,6 +567,7 @@ public class AdminDataService {
                         slot.getUpdatedAt()))
                 .toList();
         List<SnapshotExportRow> snapshots = snapshotRepository.findAll(Sort.by("id")).stream()
+                .filter(s -> projectIds.contains(s.getProject().getId()))
                 .map(snapshot -> new SnapshotExportRow(
                         snapshot.getId(),
                         snapshot.getProject().getId(),
@@ -518,14 +580,18 @@ public class AdminDataService {
                         snapshot.getCapturedAt()))
                 .toList();
         List<ArtifactExportRow> exports = artifactRepository.findAll(Sort.by("id")).stream()
+                .filter(a -> projectIds.contains(a.getProject().getId()))
                 .map(artifact -> new ArtifactExportRow(
                         artifact.getId(),
                         artifact.getProject().getId(),
                         artifact.getExportType().name(),
                         artifact.getContent(),
-                        artifact.getGeneratedAt()))
+                        artifact.getGeneratedAt(), artifact.getSourceRevision()))
                 .toList();
         return new StudyExport(
+                includeExcluded ? "ALL_DATA_DIAGNOSTIC" : "CURRENT_PROTOCOL_RANDOMIZED_INTENTION_TO_TREAT",
+                "Taxonomy coverage in slots and snapshots is diagnostic, not an outcome measure of correctness or usability.",
+                excluded,
                 Instant.now(),
                 users,
                 projects,
@@ -534,10 +600,15 @@ public class AdminDataService {
                 answers,
                 slots,
                 snapshots,
-                exports);
+                exports,
+                revisionRepository.findAll(Sort.by("id")).stream().filter(r -> projectIds.contains(r.getProjectId())).map(revision -> new RevisionExportRow(
+                        revision.getId(), revision.getProjectId(), revision.getRevision(), revision.getEventType(),
+                        parseJson(revision.getDocumentJson()), revision.getCreatedAt())).toList(),
+                callRepository.findAll(Sort.by("createdAt")).stream().filter(c -> projectIds.contains(c.getProjectId())).toList());
     }
 
     private JsonNode parseJson(String value) {
+        if (value == null || value.isBlank()) return objectMapper.getNodeFactory().nullNode();
         try {
             return objectMapper.readTree(value);
         } catch (Exception ex) {

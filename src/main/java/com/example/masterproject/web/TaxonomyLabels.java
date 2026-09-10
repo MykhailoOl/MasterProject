@@ -7,6 +7,17 @@ import org.springframework.stereotype.Component;
 @Component("taxonomyLabels")
 public class TaxonomyLabels {
 
+    public String resolution(String value) {
+        return switch (value) {
+            case "CAPTURED" -> "Please check";
+            case "OPEN" -> "Decision needed";
+            case "DEFERRED" -> "Decide later";
+            case "CONFLICT" -> "Needs clarification";
+            case "NOT_APPLICABLE" -> "Does not apply";
+            default -> value;
+        };
+    }
+
     public String name(RequirementCategory category) {
         if (category == null) {
             return "";
@@ -28,6 +39,7 @@ public class TaxonomyLabels {
         return switch (status.toUpperCase()) {
             case "DRAFT" -> "Draft";
             case "IN_PROGRESS" -> "In progress";
+            case "REVIEW" -> "Ready to review";
             case "COMPLETED" -> "Completed";
             case "ARCHIVED" -> "Archived";
             default -> status;

@@ -20,6 +20,12 @@ import java.time.Instant;
 @Table(name = "export_artifacts")
 public class ExportArtifact {
 
+    @Column(name = "source_revision")
+    private Long sourceRevision;
+
+    public Long getSourceRevision() { return sourceRevision; }
+    public void setSourceRevision(Long value) { sourceRevision = value; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

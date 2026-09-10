@@ -1,5 +1,9 @@
 app:
   dev:
-    quick-admin-login: true
+    quick-admin-login: false
+  seed:
+    enabled: true
   encryption:
     secret: ${APP_ENCRYPTION_SECRET:thesis-local-dev-encryption-key-change-me}
+server:
+  address: 127.0.0.1

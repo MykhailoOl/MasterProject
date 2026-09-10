@@ -39,10 +39,11 @@ logging:
 
 app:
   browser:
-    launch: true
+    launch: false
     url: http://localhost:8080/login
     executable: C:\\Program Files\\Mozilla Firefox\\firefox.exe
   seed:
+    enabled: false
     admin-email: admin@thesis.local
     admin-password: admin123
     demo-user-email: user@thesis.local

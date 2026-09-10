@@ -16,9 +16,8 @@
         </div>
         <div class="actions">
             <a class="button" th:href="@{/projects/{id}/elicit(id=${project.id})}">Continue questions</a>
-            <form th:action="@{/projects/{id}/export/spec(id=${project.id})}" method="post">
-                <button class="button secondary" type="submit">Create SPEC file</button>
-            </form>
+            <a class="button secondary" th:if="${project.status.name() != 'IN_PROGRESS'}"
+               th:href="@{/projects/{id}/review(id=${project.id})}">Review captured requirements</a>
             <a class="button secondary"
                th:if="${latestSpec != null}"
                th:href="@{/projects/{id}/export/spec/download(id=${project.id})}">Download SPEC file</a>
@@ -31,8 +30,8 @@
         <p th:text="${project.initialIdea}">Idea text</p>
     </section>
 
-    <section>
-        <h2>Topics you included</h2>
+    <section th:if="${currentUserAdmin}">
+        <h2>Research taxonomy</h2>
         <div class="slot-grid">
             <article class="slot-card" th:each="category : ${projectCategories}">
                 <h3 th:text="${@taxonomyLabels.name(category.category)}">What you want</h3>
@@ -44,8 +43,9 @@
         </div>
     </section>
 
-    <section>
-        <h2>What we captured so far</h2>
+    <section th:if="${currentUserAdmin}">
+        <h2>Research coverage estimates</h2>
+        <p>These scores describe recorded coverage. They do not measure correctness or readiness to build.</p>
         <div class="slot-grid">
             <article class="slot-card" th:each="slot : ${requirementSlots}">
                 <h3 th:text="${@taxonomyLabels.name(slot.category)}">What you want</h3>

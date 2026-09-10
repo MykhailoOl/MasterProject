@@ -21,6 +21,33 @@ import java.time.Instant;
 @Entity
 @Table(name = "projects")
 public class Project {
+    @Column(name = "collection_protocol", nullable = false, length = 64)
+    private String collectionProtocol = com.example.masterproject.model.interview.InterviewProtocol.COLLECTION_VERSION;
+    public String getCollectionProtocol() { return collectionProtocol; }
+    public void setCollectionProtocol(String value) { collectionProtocol = value; }
+    public boolean isCurrentProtocol() {
+        return com.example.masterproject.model.interview.InterviewProtocol.COLLECTION_VERSION.equals(collectionProtocol);
+    }
+
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    private long rowVersion;
+
+    @Column(name = "interview_document", columnDefinition = "TEXT")
+    private String interviewDocument;
+
+    @Column(name = "interview_revision", nullable = false)
+    private long interviewRevision;
+
+    @Column(name = "reviewed_revision", nullable = false)
+    private long reviewedRevision = -1;
+
+    public String getInterviewDocument() { return interviewDocument; }
+    public void setInterviewDocument(String value) { interviewDocument = value; }
+    public long getInterviewRevision() { return interviewRevision; }
+    public void setInterviewRevision(long value) { interviewRevision = value; }
+    public long getReviewedRevision() { return reviewedRevision; }
+    public void setReviewedRevision(long value) { reviewedRevision = value; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

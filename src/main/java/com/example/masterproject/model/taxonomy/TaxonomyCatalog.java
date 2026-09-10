@@ -58,7 +58,7 @@ public final class TaxonomyCatalog {
             new Definition(
                     RequirementCategory.USERS_AND_ROLES,
                     "Who will use it",
-                    "The everyday people it serves, staff who work with it, and who can change important settings.",
+                    "The people it serves, whether anyone else helps, and who may do what.",
                     true,
                     5,
                     "Users and roles",
@@ -67,17 +67,17 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "customers",
                                     "The main people being served by the product.",
-                                    "Who is this product mainly for as the everyday customer or visitor?",
+                                    "Who would you like to use this?",
                                     "Parents and gift shoppers looking for toys in local stores."),
                             new Criterion(
                                     "operators",
-                                    "People who run day-to-day work in the business.",
-                                    "Besides the everyday customers, who inside the business will use it during a normal workday?",
+                                    "Whether anyone else needs to help with the main tasks; do not assume a business or staff.",
+                                    "Would anyone else need to help with the tasks you described?",
                                     "Store clerks who update stock and answer customer questions."),
                             new Criterion(
                                     "managers",
-                                    "People who control settings, accounts, or sensitive actions.",
-                                    "Who should be allowed to change prices, override stock, or manage staff access?",
+                                    "Whether anyone needs control over who may use the product; do not invent an administrator.",
+                                    "Does anyone need to decide who is allowed to use it?",
                                     "The store owner and one store manager."),
                             new Criterion(
                                     "permissions",
@@ -106,7 +106,7 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "workflow",
                                     "The main user workflow, including its trigger and sequence.",
-                                    "Walk through the main task from the moment it starts to the moment it finishes.",
+                                    "What should happen from the moment someone starts the main task until they finish?",
                                     "Customer searches a toy, picks a store, reserves it, then collects it in store."),
                             new Criterion(
                                     "inputs_outputs",
@@ -174,7 +174,7 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "assumptions",
                                     "Important assumptions that prevent accidental scope expansion.",
-                                    "What assumption about the first release should be written down so nobody expands scope by accident?",
+                                    "Is there anything the person building this might wrongly assume you want?",
                                     "Each shop already keeps a daily stock list that can be uploaded."))),
             new Definition(
                     RequirementCategory.DATA_ENTITIES,
@@ -217,17 +217,17 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "identity",
                                     "Who needs an account and how people sign in.",
-                                    "Who needs an account, and how should they sign in?",
+                                    "Should people need to identify themselves before using the private parts?",
                                     "Customers can browse without an account; staff sign in with email and password."),
                             new Criterion(
                                     "authorization",
                                     "Which actions need stronger permission than a normal signed-in person.",
-                                    "Which actions need stronger permission than a normal signed-in user?",
+                                    "Should any action be available only to particular people?",
                                     "Only managers can create staff accounts or change prices."),
                             new Criterion(
                                     "session_recovery",
                                     "How long people stay signed in and how they recover a lost password.",
-                                    "How long should people stay signed in, and how do they recover a lost password?",
+                                    "What should someone be able to do if they lose access?",
                                     "Staff stay signed in for one workday; password reset uses email."),
                             new Criterion(
                                     "security_constraints",
@@ -256,7 +256,7 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "contract_security",
                                     "How the connection should be limited or protected.",
-                                    "How should that connection be secured or limited?",
+                                    "Is there information that must never be shared with that service?",
                                     "Only the store system may upload stock using a private upload key."),
                             new Criterion(
                                     "failure_limits",
@@ -290,7 +290,7 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "observability",
                                     "What should be recorded so staff can understand and fix important failures.",
-                                    "What should be recorded so staff can understand and fix important failures?",
+                                    "What would help someone understand what went wrong?",
                                     "Log the toy, store, and both reservation attempts with timestamps."))),
             new Definition(
                     RequirementCategory.TESTING,
@@ -303,8 +303,8 @@ public final class TaxonomyCatalog {
                     List.of(
                             new Criterion(
                                     "acceptance_criteria",
-                                    "Measurable criteria that determine whether the product is acceptable.",
-                                    "What measurable check must pass before you accept the first version?",
+                                    "Observable criteria that determine whether the product is acceptable; numbers only when meaningful to the owner.",
+                                    "What would you try to check that the first version does what you need?",
                                     "A customer can reserve an in-stock toy and staff can see that reservation."),
                             new Criterion(
                                     "critical_journeys",
@@ -319,7 +319,7 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "quality_thresholds",
                                     "Required performance, reliability, security, or accessibility thresholds.",
-                                    "Which quality number must be measured before release?",
+                                    "Is there a situation where this would feel too slow or difficult to use?",
                                     "Search must return results in under two seconds on a mid-range phone."))),
             new Definition(
                     RequirementCategory.DEPLOYMENT,
@@ -333,22 +333,22 @@ public final class TaxonomyCatalog {
                             new Criterion(
                                     "environments",
                                     "Where the live product runs and whether a separate test copy is needed.",
-                                    "Where will the live product run, and do you need a separate test copy?",
+                                    "Would you like to try a private version before other people can use it?",
                                     "One test site and one live site hosted on a standard cloud host."),
                             new Criterion(
                                     "release_process",
                                     "How a finished update moves into the live site.",
-                                    "How should a new version move from finished work into the live site?",
+                                    "Is there anything people need to know before the product changes?",
                                     "Deploy to test first, then promote to live after a short checklist."),
                             new Criterion(
                                     "configuration",
-                                    "How secrets and environment settings should be supplied safely.",
-                                    "How should secrets and environment settings be supplied safely?",
+                                    "Any known restrictions on where the product or its information may be kept; leave implementation open.",
+                                    "Do you have any restrictions on where your information may be kept?",
                                     "Database and upload keys stay in host environment settings, not in code."),
                             new Criterion(
                                     "operations",
                                     "Backup, alerts, or undo needs after go-live.",
-                                    "What must be ready after go-live for backup, alerts, or undo?",
+                                    "If an update goes wrong, what would people need to get back?",
                                     "Daily database backups and a one-step rollback to the previous release."))),
             new Definition(
                     RequirementCategory.PROJECT_TITLE,

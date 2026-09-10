@@ -4,4 +4,6 @@ import com.example.masterproject.model.entity.CompletenessSnapshot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CompletenessSnapshotRepository extends JpaRepository<CompletenessSnapshot, Long> {
+
+    boolean existsByAnswer(com.example.masterproject.model.entity.Answer answer);
 }

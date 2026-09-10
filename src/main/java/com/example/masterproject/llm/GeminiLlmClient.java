@@ -19,6 +19,11 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class GeminiLlmClient implements LlmClient {
 
+    @org.springframework.beans.factory.annotation.Value("${app.llm.gemini.model:}")
+    private String modelOverride = "";
+    @org.springframework.beans.factory.annotation.Value("${app.study.strict-model:false}")
+    private boolean strictModel;
+
     private static final List<String> PREFERRED_MODELS = List.of(
             "gemini-3.7-flash",
             "gemini-3.6-flash",
@@ -68,7 +73,7 @@ public class GeminiLlmClient implements LlmClient {
                             apiKey, candidate, buildBody(systemPrompt, userPrompt, temperature, maxTokens, candidate));
                 } catch (RestClientResponseException ex) {
                     last = ex;
-                    if (!LlmFailureMessages.canFallbackModel(ex)) {
+                    if (strictModel || !LlmFailureMessages.canFallbackModel(ex)) {
                         throw completionFailure(candidate, ex);
                     }
                     appLog.warn(
@@ -105,7 +110,8 @@ public class GeminiLlmClient implements LlmClient {
 
     private List<String> models() {
         LinkedHashSet<String> models = new LinkedHashSet<>();
-        models.add(settings.model());
+        models.add(modelOverride.isBlank() ? settings.model() : modelOverride.trim());
+        if (strictModel) return List.copyOf(models);
         models.addAll(PREFERRED_MODELS);
         return new ArrayList<>(models);
     }
@@ -152,6 +158,10 @@ public class GeminiLlmClient implements LlmClient {
         URI uri = URI.create("https://generativelanguage.googleapis.com/v1beta/models/"
                 + stripModelsPrefix(model) + ":generateContent");
         appLog.info("LLM", "Calling Gemini generateContent with model " + stripModelsPrefix(model) + ".");
+        appLog.info("LLM_CONFIG", "generation_config=" + body.path("generationConfig"));
+        LlmCallTrace.request(model, body.path("generationConfig").has("temperature") ? body.path("generationConfig").path("temperature").asDouble() : null,
+                body.path("generationConfig").has("temperature") ? "sent" : "provider_default_no_override",
+                body.path("generationConfig").path("maxOutputTokens").asInt());
         String response = restClient.post()
                 .uri(uri)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -160,12 +170,16 @@ public class GeminiLlmClient implements LlmClient {
                 .retrieve()
                 .body(String.class);
         JsonNode root = objectMapper.readTree(response);
+        LlmUsageLog.record(appLog, model, root);
         String blockReason = root.path("promptFeedback").path("blockReason").asText("");
         if (!blockReason.isBlank()) {
             throw new IllegalStateException("Gemini blocked this request. Please rephrase and try again.");
         }
         JsonNode candidate = root.path("candidates").path(0);
         String finishReason = candidate.path("finishReason").asText("");
+        if ("MAX_TOKENS".equalsIgnoreCase(finishReason)) {
+            throw new IllegalStateException("Gemini returned an incomplete response. Retry the check.");
+        }
         if ("SAFETY".equalsIgnoreCase(finishReason)
                 || "PROHIBITED_CONTENT".equalsIgnoreCase(finishReason)
                 || "BLOCKLIST".equalsIgnoreCase(finishReason)) {

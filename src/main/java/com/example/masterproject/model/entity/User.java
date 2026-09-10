@@ -19,6 +19,17 @@ import java.time.Instant;
 @Entity
 @Table(name = "users")
 public class User {
+    @Column(name = "assignment_method", nullable = false, length = 32)
+    private String assignmentMethod = "UNASSIGNED";
+    public String getAssignmentMethod() { return assignmentMethod; }
+    public void setAssignmentMethod(String value) { assignmentMethod = value; }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "study_condition", length = 32)
+    private com.example.masterproject.model.enums.StudyCondition studyCondition;
+
+    public com.example.masterproject.model.enums.StudyCondition getStudyCondition() { return studyCondition; }
+    public void setStudyCondition(com.example.masterproject.model.enums.StudyCondition value) { studyCondition = value; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
